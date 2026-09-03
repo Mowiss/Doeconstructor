@@ -132,16 +132,19 @@
   .drop-before{box-shadow:0 -3px 0 var(--brand-2)!important}
   .drop-after{box-shadow:0 3px 0 var(--brand-2)!important}
   .sec-name{
-    flex:1;border:none;background:transparent;font:inherit;font-size:13px;font-weight:600;color:var(--ink);
+    flex:1;min-width:0;border:none;background:transparent;font:inherit;font-size:13px;font-weight:600;color:var(--ink);
     padding:4px 6px;border-radius:5px
   }
   .sec-name:focus{outline:none;background:#fff;box-shadow:0 0 0 2px rgba(47,111,179,.25)}
+  .sec-top{overflow:hidden}
+  .sec-top .iconbtn,.sec-top .node-num,.sec-top .sec-count,.sec-top .grip,.sec-top .folder{flex:0 0 auto}
   .iconbtn{
     border:none;background:transparent;color:var(--muted);cursor:pointer;padding:5px;border-radius:5px;
     display:grid;place-items:center;line-height:0
   }
   .iconbtn:hover{background:#e9eef5;color:var(--ink)}
   .iconbtn.danger:hover{background:#fdeaea;color:var(--danger)}
+  .node-card.section>.sec-top .iconbtn.danger{color:var(--danger)}
   .iconbtn svg{width:15px;height:15px}
   .iconbtn[disabled]{opacity:.3;cursor:default}
   .iconbtn[disabled]:hover{background:transparent}
@@ -394,7 +397,7 @@ function renderSections(){
   let jc=0, sc=0;
   state.items.forEach(item=>{
     if(item.type==="jalon"){ jc++; sc=0; list.append(renderJalon(item, jc)); }
-    else { sc++; list.append(renderSectionCard(item, letterFor(sc))); }
+    else { sc++; list.append(renderSectionCard(item, jc>0 ? `${jc}.${sc}` : `${sc}`)); }
   });
 }
 
@@ -405,7 +408,11 @@ function makeGrip(row, item, extraCls){
   return grip;
 }
 function deleteBtn(item){
-  const del = h("button","iconbtn danger",{innerHTML:icon('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>'), title:"Supprimer"});
+  const isJalon = item.type==="jalon";
+  const del = h("button","iconbtn danger",{
+    innerHTML: isJalon ? icon('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>') : icon('<path d="M6 6l12 12M18 6L6 18"/>'),
+    title: isJalon ? "Supprimer le jalon" : "Supprimer la section"
+  });
   del.onclick = ()=>{
     const idx = state.items.findIndex(i=>i.id===item.id); if(idx<0) return;
     if(item.type==="jalon"){
@@ -694,10 +701,10 @@ function buildDocModel(){
       pages.push({type:"divider", number:num, title:item.title});
       toc.push({depth:0, kind:"chapter", number:num, title:item.title, offset, page:0});
     }else{
-      sc++; const letter=letterFor(sc);
+      sc++; const num = jc>0 ? `${jc}.${sc}` : `${sc}`;
       const depth = jc>0 ? 1 : 0;   // sections sous un jalon : indentées au sommaire
-      toc.push({depth, kind:"section", number:letter, title:item.name, offset:pages.length, page:0});
-      item.images.forEach((img,ii)=> pages.push({type:"image", src:img.src, secNum:letter, secTitle:item.name, first: ii===0}));
+      toc.push({depth, kind:"section", number:num, title:item.name, offset:pages.length, page:0});
+      item.images.forEach((img,ii)=> pages.push({type:"image", src:img.src, secNum:num, secTitle:item.name, first: ii===0}));
     }
   });
   return {toc, pages};

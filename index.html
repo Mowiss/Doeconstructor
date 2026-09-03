@@ -109,17 +109,28 @@
   .sec-card.collapsed>.sec-body,.node-card.collapsed>.node-body{display:none}
   .sec-count{font-size:11px;color:var(--muted);white-space:nowrap;flex:0 0 auto;padding:0 2px}
 
-  /* arbre */
+  /* liste à plat */
   .node-card{border:1px solid var(--line);border-radius:8px;margin-bottom:10px;overflow:hidden;background:#fff}
-  .node-card.chapter{border-color:#c3d2e6}
-  .node-card.chapter>.sec-top{background:#eef3fa;border-bottom:1px solid #d6e0ee}
   .node-num{flex:0 0 auto;font-weight:700;color:var(--brand);font-size:12.5px;font-variant-numeric:tabular-nums;min-width:14px}
   .node-num.letter{color:#6b7787;font-weight:600}
-  .node-body{padding:10px}
-  .node-children{margin:8px 0 0;padding-left:10px;border-left:2px solid #e2e8f1}
-  .node-children:empty{display:none}
-  .add-row{display:flex;gap:8px;margin-top:8px}
-  .add-row .minibtn{flex:1;justify-content:center;font-size:12px;padding:6px 8px}
+
+  /* jalon (chapitre) */
+  .jalon{display:flex;align-items:center;gap:6px;background:var(--brand);color:#fff;border-radius:8px;padding:6px 8px 6px 4px;margin-bottom:10px;box-shadow:0 1px 3px rgba(18,58,107,.25)}
+  .jalon-num{font-weight:800;font-size:13px;min-width:16px;text-align:center;flex:0 0 auto}
+  .jalon-title{flex:1;background:transparent;border:none;color:#fff;font-weight:700;font-size:13px;padding:4px 6px;border-radius:5px;min-width:0}
+  .jalon-title::placeholder{color:rgba(255,255,255,.6)}
+  .jalon-title:focus{outline:none;background:rgba(255,255,255,.15)}
+  .jalon .iconbtn{color:#fff}
+  .jalon .iconbtn:hover{background:rgba(255,255,255,.2)}
+
+  /* poignée + marqueurs de dépôt */
+  .grip{cursor:grab;flex:0 0 auto;display:grid;place-items:center;padding:2px;opacity:.85}
+  .grip svg{width:16px;height:16px}
+  .grip.muted{color:var(--muted)}
+  .grip:active{cursor:grabbing}
+  .drag-item.dragging{opacity:.4}
+  .drop-before{box-shadow:0 -3px 0 var(--brand-2)!important}
+  .drop-after{box-shadow:0 3px 0 var(--brand-2)!important}
   .sec-name{
     flex:1;border:none;background:transparent;font:inherit;font-size:13px;font-weight:600;color:var(--ink);
     padding:4px 6px;border-radius:5px
@@ -217,6 +228,14 @@
   .page-content-img{padding:26mm var(--padX) var(--padB)}
   .page-content-img .img-wrap{flex:1;display:grid;place-items:center;min-height:0}
   .page-content-img .img-wrap img{max-width:100%;max-height:100%;object-fit:contain}
+  .sec-head{position:absolute;top:10mm;left:var(--padX);max-width:120mm;font-size:11pt;font-weight:700;text-decoration:underline;text-underline-offset:2px;color:#1a1a1a}
+
+  /* intercalaire de chapitre */
+  .page-divider .page-content{justify-content:center}
+  .div-title{
+    text-align:center;color:var(--brand);font-style:italic;font-weight:700;font-size:15pt;letter-spacing:.3px;
+    border-top:1px solid #98a2ae;border-bottom:1px solid #98a2ae;padding:7mm 4mm
+  }
 
   .hidden-input{display:none}
 
@@ -270,11 +289,14 @@
         <button class="minibtn" id="btnCollapseAll" style="padding:4px 8px;font-size:11.5px">Tout réduire</button>
       </div>
       <div style="display:flex;gap:8px">
-        <button class="minibtn brand" style="flex:1;justify-content:center" id="btnAddChapter">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path d="M12 11v4M10 13h4"/></svg>
-          Nouveau chapitre
+        <button class="minibtn brand" style="flex:1;justify-content:center" id="btnAddJalon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v16"/><path d="M4 5h13l-2.5 3L17 11H4"/></svg>
+          Nouveau jalon
         </button>
-        <button class="minibtn" id="btnAddRootSection" title="Ajouter une section hors chapitre">＋ Section</button>
+        <button class="minibtn" style="flex:1;justify-content:center" id="btnAddSection">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+          Nouvelle section
+        </button>
       </div>
       <div id="sectionsList" style="margin-top:12px"></div>
     </div>
@@ -319,7 +341,7 @@ function newState(){
     },
     logo:null,        // dataURL – repris en haut à droite de chaque page
     photo:null,       // dataURL – photo de couverture
-    tree:[]           // chapitres {id,type:'chapter',title,children:[]} et sections {id,type:'section',name,images:[]}
+    items:[]          // liste à plat : jalons {id,type:'jalon',title} et sections {id,type:'section',name,images:[]}
   };
 }
 let state = newState();
@@ -349,114 +371,79 @@ function readAsDataURL(file){
 }
 function markDirty(){ dirty = true; document.body.classList.add("dirty"); }
 
-/* ---- helpers arbre ---- */
-const newChapter = ()=>({ id:uid(), type:"chapter", title:"", children:[] });
+/* ---- helpers (liste à plat : jalons + sections) ---- */
+const newJalon = ()=>({ id:uid(), type:"jalon", title:"" });
 const newSection = ()=>({ id:uid(), type:"section", name:"", images:[] });
-function countImages(node){
-  return node.type==="section" ? node.images.length : node.children.reduce((n,c)=>n+countImages(c),0);
-}
+function countImages(item){ return item.type==="section" ? item.images.length : 0; }
 function letterFor(n){ let s=""; while(n>0){ n--; s=String.fromCharCode(65+(n%26))+s; n=Math.floor(n/26); } return s; }
-function orderedSections(){
-  const out=[]; (function walk(nodes){ for(const n of nodes){ n.type==="section" ? out.push(n) : walk(n.children); } })(state.tree); return out;
-}
-function allNodeIds(){
-  const out=[]; (function walk(nodes){ for(const n of nodes){ out.push(n.id); if(n.type==="chapter") walk(n.children); } })(state.tree); return out;
-}
-function findNode(id){
-  let found=null; (function walk(nodes){ for(const n of nodes){ if(n.id===id){ found=n; return; } if(n.type==="chapter") walk(n.children); if(found) return; } })(state.tree); return found;
-}
+function orderedSections(){ return state.items.filter(i=>i.type==="section"); }
+function sectionIds(){ return orderedSections().map(s=>s.id); }
+function findItem(id){ return state.items.find(i=>i.id===id) || null; }
+function gripIcon(){ return `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>`; }
 
-/* ============ Rendu du panneau (arbre) ============ */
+/* ============ Rendu du panneau (liste à plat) ============ */
+let dragId = null;
+
 function renderSections(){
   const list = $("#sectionsList");
   list.innerHTML = "";
-  if(state.tree.length === 0){
-    list.append(h("div","empty-note",{textContent:"Rien pour l'instant. Crée un chapitre (ou une section) pour commencer."}));
+  if(state.items.length === 0){
+    list.append(h("div","empty-note",{textContent:"Rien pour l'instant. Ajoute un jalon (chapitre) ou une section."}));
     return;
   }
-  renderChildrenInto(list, state.tree, "", 0);
-}
-
-function renderChildrenInto(container, nodes, prefix, depth){
-  let cc=0, sc=0;
-  nodes.forEach((node, idx)=>{
-    let label;
-    if(node.type==="chapter"){ cc++; label = prefix ? `${prefix}.${cc}` : `${cc}`; }
-    else { sc++; label = letterFor(sc); }
-    container.append(renderNode(node, nodes, idx, label, prefix, depth));
+  let jc=0, sc=0;
+  state.items.forEach(item=>{
+    if(item.type==="jalon"){ jc++; sc=0; list.append(renderJalon(item, jc)); }
+    else { sc++; list.append(renderSectionCard(item, letterFor(sc))); }
   });
 }
 
-function headerControls(node, siblings, index){
-  const up = h("button","iconbtn",{innerHTML:icon('<path d="M18 15l-6-6-6 6"/>'), title:"Monter"});
-  up.disabled = index===0;
-  up.onclick = ()=>{ if(index>0){ [siblings[index-1],siblings[index]]=[siblings[index],siblings[index-1]]; changed(); } };
-  const down = h("button","iconbtn",{innerHTML:icon('<path d="M6 9l6 6 6-6"/>'), title:"Descendre"});
-  down.disabled = index===siblings.length-1;
-  down.onclick = ()=>{ if(index<siblings.length-1){ [siblings[index+1],siblings[index]]=[siblings[index],siblings[index+1]]; changed(); } };
+function makeGrip(row, item, extraCls){
+  const grip = h("span","grip"+(extraCls?" "+extraCls:""),{draggable:true, innerHTML:gripIcon(), title:"Glisser pour déplacer"});
+  grip.addEventListener("dragstart", e=>{ dragId=item.id; e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain", item.id); row.classList.add("dragging"); });
+  grip.addEventListener("dragend", ()=> row.classList.remove("dragging"));
+  return grip;
+}
+function deleteBtn(item){
   const del = h("button","iconbtn danger",{innerHTML:icon('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>'), title:"Supprimer"});
   del.onclick = ()=>{
-    const n = countImages(node);
-    const what = node.type==="chapter" ? `le chapitre « ${node.title||"(sans titre)"} »` : `la section « ${node.name||"(sans titre)"} »`;
-    if(confirm(`Supprimer ${what}${n?` et ses ${n} page(s)`:""} ?`)){ siblings.splice(index,1); changed(); }
+    const idx = state.items.findIndex(i=>i.id===item.id); if(idx<0) return;
+    if(item.type==="jalon"){
+      if(confirm(`Supprimer le jalon « ${item.title||"(sans titre)"} » ? (les sections en dessous sont conservées)`)){ state.items.splice(idx,1); changed(); }
+    }else{
+      const n = item.images.length;
+      if(confirm(`Supprimer la section « ${item.name||"(sans titre)"} »${n?` et ses ${n} page(s)`:""} ?`)){ state.items.splice(idx,1); changed(); }
+    }
   };
-  return [up,down,del];
+  return del;
 }
 
-function renderNode(node, siblings, index, label, prefix, depth){
-  return node.type==="chapter"
-    ? renderChapter(node, siblings, index, label, depth)
-    : renderSection(node, siblings, index, label);
+function renderJalon(item, num){
+  const row = h("div","jalon drag-item"); row.dataset.id = item.id;
+  row.append(makeGrip(row, item));
+  row.append(h("span","jalon-num",{textContent:num}));
+  const title = h("input","jalon-title",{value:item.title, type:"text", placeholder:"Titre du chapitre (jalon)"});
+  title.addEventListener("input", ()=>{ item.title = title.value; markDirty(); renderDocument(); });
+  row.append(title);
+  row.append(deleteBtn(item));
+  return row;
 }
 
-function renderChapter(chap, siblings, index, num, depth){
-  const card = h("div","node-card chapter");
-  if(collapsedNodes.has(chap.id)) card.classList.add("collapsed");
-
-  const top = h("div","sec-top");
-  const caret = h("button","iconbtn sec-caret",{innerHTML:icon('<path d="M6 9l6 6 6-6"/>'), title:"Réduire / déplier"});
-  caret.onclick = ()=>{ collapsedNodes.has(chap.id)?collapsedNodes.delete(chap.id):collapsedNodes.add(chap.id); card.classList.toggle("collapsed"); };
-  top.append(caret);
-  top.append(h("span","node-num",{textContent:num}));
-  const name = h("input","sec-name",{value:chap.title, type:"text", placeholder:"Titre du chapitre"});
-  name.addEventListener("input", ()=>{ chap.title = name.value; markDirty(); renderDocument(); });
-  top.append(name);
-  top.append(h("span","sec-count",{textContent:`${countImages(chap)} p.`}));
-  top.append(...headerControls(chap, siblings, index));
-  card.append(top);
-
-  const body = h("div","node-body");
-  const children = h("div","node-children");
-  renderChildrenInto(children, chap.children, num, depth+1);
-  body.append(children);
-
-  const addRow = h("div","add-row");
-  const addSub = h("button","minibtn",{innerHTML:icon('<path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>')+" Sous-chapitre"});
-  addSub.onclick = ()=>{ chap.children.push(newChapter()); changed(); };
-  const addSec = h("button","minibtn",{innerHTML:icon('<path d="M12 3v12m0 0l-4-4m4 4l4-4"/>')+" Section"});
-  addSec.onclick = ()=>{ chap.children.push(newSection()); changed(); };
-  addRow.append(addSub, addSec);
-  body.append(addRow);
-
-  card.append(body);
-  return card;
-}
-
-function renderSection(sec, siblings, index, letter){
-  const card = h("div","node-card section sec-card");
+function renderSectionCard(sec, letter){
+  const card = h("div","node-card section sec-card drag-item"); card.dataset.id = sec.id;
   if(collapsedNodes.has(sec.id)) card.classList.add("collapsed");
 
   const top = h("div","sec-top");
+  top.append(makeGrip(card, sec, "muted"));
   const caret = h("button","iconbtn sec-caret",{innerHTML:icon('<path d="M6 9l6 6 6-6"/>'), title:"Réduire / déplier"});
   caret.onclick = ()=>{ collapsedNodes.has(sec.id)?collapsedNodes.delete(sec.id):collapsedNodes.add(sec.id); card.classList.toggle("collapsed"); };
   top.append(caret);
   top.append(h("span","node-num letter",{textContent:letter}));
-  top.insertAdjacentHTML("beforeend", `<span class="folder">${icon('<path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>')}</span>`);
   const name = h("input","sec-name",{value:sec.name, type:"text", placeholder:"Titre de la section"});
   name.addEventListener("input", ()=>{ sec.name = name.value; markDirty(); renderDocument(); });
   top.append(name);
   top.append(h("span","sec-count",{textContent:`${sec.images.length} p.`}));
-  top.append(...headerControls(sec, siblings, index));
+  top.append(deleteBtn(sec));
   card.append(top);
 
   const body = h("div","sec-body");
@@ -477,11 +464,11 @@ function renderSection(sec, siblings, index, letter){
       const x = h("button","del",{innerHTML:icon('<path d="M6 6l12 12M18 6L6 18"/>'), title:"Supprimer"});
       x.onclick = (e)=>{ e.stopPropagation(); sec.images.splice(idx,1); changed(); };
       t.append(x);
-      t.addEventListener("dragstart", e=>{ e.dataTransfer.setData("text/plain", idx); e.dataTransfer.effectAllowed="move"; });
-      t.addEventListener("dragover", e=>{ e.preventDefault(); t.classList.add("dragover"); });
+      t.addEventListener("dragstart", e=>{ e.stopPropagation(); e.dataTransfer.setData("text/plain", idx); e.dataTransfer.effectAllowed="move"; });
+      t.addEventListener("dragover", e=>{ e.preventDefault(); e.stopPropagation(); t.classList.add("dragover"); });
       t.addEventListener("dragleave", ()=> t.classList.remove("dragover"));
       t.addEventListener("drop", e=>{
-        e.preventDefault(); t.classList.remove("dragover");
+        e.preventDefault(); e.stopPropagation(); t.classList.remove("dragover");
         const from = parseInt(e.dataTransfer.getData("text/plain"),10);
         if(Number.isInteger(from) && from!==idx){ const moved = sec.images.splice(from,1)[0]; sec.images.splice(idx,0,moved); changed(); }
       });
@@ -492,6 +479,38 @@ function renderSection(sec, siblings, index, letter){
 
   card.append(body);
   return card;
+}
+
+/* glisser-déposer de la liste (jalons + sections) */
+function setupListDnD(){
+  const c = $("#sectionsList");
+  function clearMarks(){ c.querySelectorAll(".drop-before,.drop-after").forEach(el=>el.classList.remove("drop-before","drop-after")); }
+  function afterEl(y){
+    const els=[...c.querySelectorAll(".drag-item:not(.dragging)")];
+    for(const el of els){ const r=el.getBoundingClientRect(); if(y < r.top + r.height/2) return el; }
+    return null;
+  }
+  c.addEventListener("dragover", e=>{
+    if(!dragId) return;                       // ignorer les glissers d'images
+    e.preventDefault();
+    clearMarks();
+    const after = afterEl(e.clientY);
+    if(after) after.classList.add("drop-before");
+    else { const items=c.querySelectorAll(".drag-item"); if(items.length) items[items.length-1].classList.add("drop-after"); }
+  });
+  c.addEventListener("drop", e=>{
+    if(!dragId) return;
+    e.preventDefault(); clearMarks();
+    const after = afterEl(e.clientY);
+    const from = state.items.findIndex(i=>i.id===dragId);
+    if(from>=0){
+      const [it] = state.items.splice(from,1);
+      if(!after){ state.items.push(it); }
+      else { const to = state.items.findIndex(i=>i.id===after.dataset.id); to<0 ? state.items.push(it) : state.items.splice(to,0,it); }
+    }
+    dragId=null; changed();
+  });
+  c.addEventListener("dragend", ()=>{ dragId=null; clearMarks(); c.querySelectorAll(".dragging").forEach(el=>el.classList.remove("dragging")); });
 }
 
 function changed(){ markDirty(); renderSections(); renderDocument(); }
@@ -639,34 +658,49 @@ function buildSommaire(entries){
   return pages;
 }
 
-function buildContentPage(imgObj, pageNumber){
+function buildImagePage(p, pageNumber){
   const page = pageEl("page-content-img");
   addLogoAndNum(page, pageNumber);
+  if(p.first){                          // 1re page de section : bandeau haut-gauche gras souligné
+    const head = h("div","sec-head");
+    head.textContent = p.secTitle ? `${p.secNum} - ${p.secTitle}` : p.secNum;
+    page.append(head);
+  }
   const wrap = h("div","img-wrap");
-  const im = h("img"); im.src = imgObj.src;
+  const im = h("img"); im.src = p.src;
   wrap.append(im);
   page.append(wrap);
   return page;
 }
 
-function flattenTree(){
-  const entries=[];   // {depth, kind, number, title, firstImg, page}
-  let imgBefore=0;
-  (function walk(nodes, prefix, depth){
-    let cc=0, sc=0;
-    for(const node of nodes){
-      if(node.type==="chapter"){
-        cc++; const num = prefix ? `${prefix}.${cc}` : `${cc}`;
-        entries.push({depth, kind:"chapter", number:num, title:node.title, firstImg:imgBefore, page:0});
-        walk(node.children, num, depth+1);
-      }else{
-        sc++;
-        entries.push({depth, kind:"section", number:letterFor(sc), title:node.name, firstImg:imgBefore, page:0});
-        imgBefore += node.images.length;
-      }
+function buildDividerPage(p){            // intercalaire de chapitre (ni logo ni numéro affiché)
+  const page = pageEl("page-divider");
+  const c = h("div","page-content");
+  const t = h("div","div-title");
+  t.textContent = p.title ? `${p.number} - ${p.title}` : p.number;
+  c.append(t);
+  page.append(c);
+  return page;
+}
+
+// Construit en un seul parcours : entrées du sommaire + liste ordonnée des pages.
+// Un jalon => une page intercalaire ; une section => une page par image. offset = index de la 1re page.
+function buildDocModel(){
+  const toc=[], pages=[]; let jc=0, sc=0;
+  state.items.forEach(item=>{
+    if(item.type==="jalon"){
+      jc++; sc=0; const num=String(jc);
+      const offset=pages.length;
+      pages.push({type:"divider", number:num, title:item.title});
+      toc.push({depth:0, kind:"chapter", number:num, title:item.title, offset, page:0});
+    }else{
+      sc++; const letter=letterFor(sc);
+      const depth = jc>0 ? 1 : 0;   // sections sous un jalon : indentées au sommaire
+      toc.push({depth, kind:"section", number:letter, title:item.name, offset:pages.length, page:0});
+      item.images.forEach((img,ii)=> pages.push({type:"image", src:img.src, secNum:letter, secTitle:item.name, first: ii===0}));
     }
-  })(state.tree, "", 0);
-  return entries;
+  });
+  return {toc, pages};
 }
 
 function renderDocument(){
@@ -675,22 +709,22 @@ function renderDocument(){
   // 1) Couverture (page 1)
   doc.append(buildCover());
 
-  // 2) Entrées du sommaire (à partir de l'arbre) ; le nb de pages sommaire ne dépend que du nb d'entrées
-  const entries = flattenTree();
-  const somPages = buildSommaire(entries);
+  // 2) Modèle : entrées sommaire + pages (intercalaires + images)
+  const {toc, pages} = buildDocModel();
+
+  // 3) Sommaire (le nb de pages sommaire ne dépend que du nb d'entrées)
+  const somPages = buildSommaire(toc);
   const S = somPages.length;
 
-  // 3) Numéros de page absolus : couverture=1 ; sommaire=2..1+S ; contenu à partir de S+2
+  // 4) Numéros de page absolus : couverture=1 ; sommaire=2..1+S ; contenu à partir de S+2
   const contentStart = 1 + S + 1;
-  entries.forEach(en=>{ en.page = contentStart + en.firstImg; });
+  toc.forEach(en=>{ en.page = contentStart + en.offset; });
+  doc.querySelectorAll(".toc-row .toc-page").forEach((el,i)=>{ if(toc[i]) el.textContent = toc[i].page; });
 
-  // remplir les numéros dans les lignes déjà rendues (même ordre que les entrées)
-  doc.querySelectorAll(".toc-row .toc-page").forEach((el,i)=>{ if(entries[i]) el.textContent = entries[i].page; });
-
-  // 4) Pages de contenu (sections dans l'ordre du document)
-  let pageNo = contentStart;
-  orderedSections().forEach(sec=>{
-    sec.images.forEach(img=>{ doc.append(buildContentPage(img, pageNo)); pageNo++; });
+  // 5) Pages de contenu
+  pages.forEach((p,idx)=>{
+    const num = contentStart + idx;
+    doc.append(p.type==="divider" ? buildDividerPage(p) : buildImagePage(p, num));
   });
 
   applyZoom();
@@ -734,23 +768,30 @@ function saveJSON(){
   setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
   dirty = false; document.body.classList.remove("dirty");
 }
-function normalizeNode(n){
-  if(!n || typeof n!=="object") return null;
-  if(n.type==="chapter" || Array.isArray(n.children)){
-    return { id:n.id||uid(), type:"chapter", title:n.title ?? n.name ?? "", children:(Array.isArray(n.children)?n.children:[]).map(normalizeNode).filter(Boolean) };
-  }
-  // section (défaut)
+function normSection(n){
   return { id:n.id||uid(), type:"section", name:n.name ?? n.title ?? "", images:Array.isArray(n.images)?n.images.map(im=>({id:im.id||uid(), src:im.src, name:im.name||""})).filter(im=>im.src):[] };
+}
+function toItems(obj){
+  if(Array.isArray(obj.items)){
+    return obj.items.map(n=> n && n.type==="jalon" ? {id:n.id||uid(), type:"jalon", title:n.title??""} : normSection(n)).filter(Boolean);
+  }
+  if(Array.isArray(obj.tree)){                 // ancien format arbre -> aplati (chapitres/sous-chapitres deviennent des jalons)
+    const out=[];
+    (function walk(nodes){ for(const n of nodes){
+      if(n && (n.type==="chapter" || Array.isArray(n.children))){ out.push({id:n.id||uid(), type:"jalon", title:n.title??n.name??""}); walk(Array.isArray(n.children)?n.children:[]); }
+      else if(n) out.push(normSection(n));
+    }})(obj.tree);
+    return out;
+  }
+  if(Array.isArray(obj.sections)) return obj.sections.map(normSection);   // tout 1er format à plat
+  return [];
 }
 function loadJSON(file){
   const r = new FileReader();
   r.onload = ()=>{
     try{
       const obj = JSON.parse(r.result);
-      if(!obj || typeof obj!=="object" || !("tree" in obj) && !("sections" in obj)) throw new Error("format");
-      const rawTree = Array.isArray(obj.tree) ? obj.tree
-                    : Array.isArray(obj.sections) ? obj.sections          // ancien format à plat
-                    : [];
+      if(!obj || typeof obj!=="object" || (!("items" in obj) && !("tree" in obj) && !("sections" in obj))) throw new Error("format");
       state = {
         meta:{
           title: obj.meta?.title ?? "",
@@ -759,7 +800,7 @@ function loadJSON(file){
         },
         logo: obj.logo ?? null,
         photo: obj.photo ?? null,
-        tree: rawTree.map(normalizeNode).filter(Boolean)
+        items: toItems(obj)
       };
       collapsedNodes.clear();
       renderAll();
@@ -782,16 +823,16 @@ function renderAll(){ renderSections(); renderDocument(); }
 $("#inLogo").addEventListener("change", async e=>{ if(e.target.files[0]){ state.logo=await readAsDataURL(e.target.files[0]); markDirty(); renderDocument(); } e.target.value=""; });
 $("#inPhoto").addEventListener("change", async e=>{ if(e.target.files[0]){ state.photo=await readAsDataURL(e.target.files[0]); markDirty(); renderDocument(); } e.target.value=""; });
 $("#inSecImgs").addEventListener("change", async e=>{
-  const sec = findNode(activeSecForImport);
+  const sec = findItem(activeSecForImport);
   if(sec && sec.type==="section" && e.target.files.length) await addFilesToSection(sec, e.target.files);
   activeSecForImport=null; e.target.value="";
 });
 $("#inJson").addEventListener("change", e=>{ if(e.target.files[0]) loadJSON(e.target.files[0]); e.target.value=""; });
 
-$("#btnAddChapter").addEventListener("click", ()=>{ state.tree.push(newChapter()); changed(); });
-$("#btnAddRootSection").addEventListener("click", ()=>{ state.tree.push(newSection()); changed(); });
+$("#btnAddJalon").addEventListener("click", ()=>{ state.items.push(newJalon()); changed(); });
+$("#btnAddSection").addEventListener("click", ()=>{ state.items.push(newSection()); changed(); });
 $("#btnCollapseAll").addEventListener("click", ()=>{
-  const ids = allNodeIds();
+  const ids = sectionIds();
   const allCollapsed = ids.length>0 && ids.every(id=>collapsedNodes.has(id));
   if(allCollapsed){ collapsedNodes.clear(); $("#btnCollapseAll").textContent="Tout réduire"; }
   else{ ids.forEach(id=>collapsedNodes.add(id)); $("#btnCollapseAll").textContent="Tout déplier"; }
@@ -813,6 +854,7 @@ function currentAutoScale(){
 window.addEventListener("beforeunload", e=>{ if(dirty){ e.preventDefault(); e.returnValue=""; } });
 
 /* ============ Démarrage ============ */
+setupListDnD();
 renderAll();
 </script>
 </body>

@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DOE — Dossier d'Ouvrage Exécuté</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%97%83%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --brand:#123a6b;        /* bleu André TP */
+    --brand-2:#2f6fb3;
+    --ink:#16202e;
+    --muted:#5f6b7a;
+    --line:#d8dde5;
+    --panel:#ffffff;
+    --canvas:#e7eaef;
+    --danger:#b23b3b;
+    --ok:#2e7d4f;
+    --radius:8px;
+    --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --doc:"Arial","Helvetica Neue",Helvetica,Arial,sans-serif;
+    /* A4 */
+    --pageW:210mm;
+    --pageH:297mm;
+    --padX:18mm;
+    --padT:16mm;
+    --padB:14mm;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;font-family:var(--ui);color:var(--ink);background:var(--canvas);
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+
+  /* ---------- Toolbar ---------- */
+  .toolbar{
+    flex:0 0 auto;display:flex;align-items:center;gap:10px;
+    padding:10px 16px;background:var(--brand);color:#fff;
+    box-shadow:0 1px 0 rgba(0,0,0,.15);z-index:20;
+  }
+  .toolbar .brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.3px}
+  .toolbar .brand .mark{
+    width:26px;height:26px;display:grid;place-items:center;font-size:20px;line-height:1
+  }
+  .toolbar .brand small{font-weight:500;opacity:.8;letter-spacing:.5px;font-size:11px}
+  .toolbar .spacer{flex:1}
+  .tbtn{
+    display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(255,255,255,.35);
+    background:rgba(255,255,255,.08);color:#fff;padding:8px 12px;border-radius:var(--radius);
+    font:inherit;font-size:13px;cursor:pointer;transition:background .12s,border-color .12s
+  }
+  .tbtn:hover{background:rgba(255,255,255,.2)}
+  .tbtn.primary{background:#fff;color:var(--brand);border-color:#fff;font-weight:600}
+  .tbtn.primary:hover{background:#eef3fb}
+  .tbtn svg{width:15px;height:15px}
+  .dirty-dot{width:8px;height:8px;border-radius:50%;background:#ffd24a;display:none}
+  .dirty .dirty-dot{display:inline-block}
+
+  /* ---------- Workspace ---------- */
+  .workspace{flex:1;display:flex;min-height:0}
+  .panel{
+    flex:0 0 320px;background:var(--panel);border-right:1px solid var(--line);
+    display:flex;flex-direction:column;min-height:0;overflow:auto
+  }
+  .panel-section{padding:16px;border-bottom:1px solid var(--line)}
+  .panel-section h2{
+    margin:0 0 10px;font-size:12px;letter-spacing:.4px;color:var(--muted);
+    text-transform:uppercase;font-weight:700
+  }
+  .field{margin-bottom:10px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+  .field input[type=text]{
+    width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;
+    font:inherit;font-size:13px;color:var(--ink)
+  }
+  .field input[type=text]:focus{outline:none;border-color:var(--brand-2);box-shadow:0 0 0 3px rgba(47,111,179,.15)}
+
+  .minibtn{
+    display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);
+    background:#fff;color:var(--ink);padding:7px 10px;border-radius:6px;
+    font:inherit;font-size:12.5px;cursor:pointer;transition:border-color .12s,background .12s
+  }
+  .minibtn:hover{border-color:var(--brand-2);background:#f5f8fc}
+  .minibtn.block{width:100%;justify-content:center}
+  .minibtn.brand{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .minibtn.brand:hover{background:#0e2f57}
+  .minibtn.ghost-danger:hover{border-color:var(--danger);color:var(--danger);background:#fdf3f3}
+  .minibtn svg{width:14px;height:14px}
+
+  .imgset{display:flex;gap:8px;margin-top:6px}
+  .thumbset{
+    position:relative;flex:1;border:1px dashed var(--line);border-radius:6px;height:64px;
+    display:grid;place-items:center;color:var(--muted);font-size:12px;overflow:hidden;cursor:pointer;
+    background:#fafbfc;text-align:center;padding:4px
+  }
+  .thumbset.has img{width:100%;height:100%;object-fit:contain;padding:4px}
+  .thumbset.drag{border-color:var(--brand-2);background:#eef4fb}
+
+  /* sections list */
+  .sections-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .sec-card{
+    border:1px solid var(--line);border-radius:8px;margin-bottom:10px;overflow:hidden;background:#fff
+  }
+  .sec-top{display:flex;align-items:center;gap:6px;padding:8px 8px 8px 10px;background:#f7f9fc;border-bottom:1px solid var(--line)}
+  .sec-top .folder{color:var(--brand);flex:0 0 auto}
+  .sec-name{
+    flex:1;border:none;background:transparent;font:inherit;font-size:13px;font-weight:600;color:var(--ink);
+    padding:4px 6px;border-radius:5px
+  }
+  .sec-name:focus{outline:none;background:#fff;box-shadow:0 0 0 2px rgba(47,111,179,.25)}
+  .iconbtn{
+    border:none;background:transparent;color:var(--muted);cursor:pointer;padding:5px;border-radius:5px;
+    display:grid;place-items:center;line-height:0
+  }
+  .iconbtn:hover{background:#e9eef5;color:var(--ink)}
+  .iconbtn.danger:hover{background:#fdeaea;color:var(--danger)}
+  .iconbtn svg{width:15px;height:15px}
+  .iconbtn[disabled]{opacity:.3;cursor:default}
+  .iconbtn[disabled]:hover{background:transparent}
+
+  .sec-body{padding:10px}
+  .sec-meta{font-size:12px;color:var(--muted);margin-bottom:8px}
+  .thumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+  .thumb{
+    position:relative;aspect-ratio:1/1.3;border:1px solid var(--line);border-radius:5px;overflow:hidden;
+    background:#fafbfc;cursor:grab
+  }
+  .thumb img{width:100%;height:100%;object-fit:cover}
+  .thumb .num{position:absolute;left:3px;top:3px;background:rgba(18,58,107,.85);color:#fff;font-size:10px;
+    padding:1px 5px;border-radius:8px;font-weight:600}
+  .thumb .del{position:absolute;right:2px;top:2px;background:rgba(255,255,255,.9);border:none;border-radius:5px;
+    width:18px;height:18px;display:grid;place-items:center;cursor:pointer;color:var(--danger);line-height:0;opacity:0;transition:opacity .12s}
+  .thumb:hover .del{opacity:1}
+  .thumb.dragover{outline:2px solid var(--brand-2);outline-offset:-2px}
+  .sec-drop{border:1px dashed var(--line);border-radius:6px;padding:10px;text-align:center;color:var(--muted);font-size:12px;margin-top:8px;cursor:pointer}
+  .sec-drop.drag{border-color:var(--brand-2);background:#eef4fb;color:var(--brand)}
+  .empty-note{color:var(--muted);font-size:13px;padding:6px 0;text-align:center}
+
+  /* ---------- Canvas / document ---------- */
+  .canvas{flex:1;min-width:0;overflow:auto;padding:28px;display:flex;flex-direction:column;align-items:center;gap:24px}
+  .zoombar{
+    position:fixed;right:22px;bottom:18px;display:flex;gap:6px;background:#fff;border:1px solid var(--line);
+    border-radius:20px;padding:5px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:15
+  }
+  .zoombar button{border:none;background:transparent;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:16px;color:var(--ink)}
+  .zoombar button:hover{background:#eef2f7}
+  .zoombar .lvl{min-width:48px;text-align:center;font-size:12px;color:var(--muted);align-self:center}
+
+  #document{display:flex;flex-direction:column;align-items:center;gap:24px;transform-origin:top center}
+
+  .page{
+    width:var(--pageW);height:var(--pageH);background:#fff;position:relative;
+    box-shadow:0 3px 14px rgba(0,0,0,.16);display:flex;flex-direction:column;overflow:hidden;
+    font-family:var(--doc);color:#1a1a1a
+  }
+  .page-logo{position:absolute;top:9mm;right:var(--padX);height:16mm;max-width:48mm;object-fit:contain}
+  .page-num{position:absolute;bottom:8mm;right:var(--padX);font-size:10pt;color:#333}
+  .page-content{flex:1;padding:var(--padT) var(--padX) var(--padB);display:flex;flex-direction:column;min-height:0}
+
+  /* cover */
+  .cover .cov-logo-zone{
+    align-self:center;margin-top:6mm;height:34mm;width:70mm;display:grid;place-items:center;
+    border:1.5px dashed var(--line);border-radius:6px;color:var(--muted);font-size:11pt;cursor:pointer;text-align:center;padding:6px
+  }
+  .cover .cov-logo-zone.has{border:none}
+  .cover .cov-logo-zone img{max-height:100%;max-width:100%;object-fit:contain}
+  .cover .cov-logo-zone.drag,.cover .cov-photo-zone.drag{border-color:var(--brand-2);background:#eef4fb}
+  .cover .cov-title{
+    margin-top:26mm;text-align:center;font-weight:300;font-size:30pt;letter-spacing:.5px;color:#222;
+    border-top:1px solid var(--brand);border-bottom:1px solid var(--brand);padding:7mm 0;min-height:1em
+  }
+  .cover .cov-sub{text-align:center;font-size:13pt;letter-spacing:2px;color:#333;margin-top:6mm;text-transform:uppercase;min-height:1em}
+  .cover .cov-photo-zone{
+    margin-top:16mm;flex:1;min-height:60mm;border:1.5px dashed var(--line);border-radius:6px;
+    display:grid;place-items:center;color:var(--muted);font-size:11pt;cursor:pointer;overflow:hidden;text-align:center;padding:8px
+  }
+  .cover .cov-photo-zone.has{border:none}
+  .cover .cov-photo-zone img{width:100%;height:100%;object-fit:cover}
+  .cover .cov-footer{text-align:center;font-size:9pt;color:#666;margin-top:10mm;line-height:1.5;min-height:1em}
+  [contenteditable]{outline:none}
+  [contenteditable]:focus{background:rgba(47,111,179,.06);border-radius:4px}
+  [contenteditable].ph:empty:before{content:attr(data-ph);color:#b3bcc8}
+
+  /* sommaire */
+  .page-sommaire .som-title{font-size:16pt;font-weight:700;color:var(--brand);text-align:center;text-decoration:underline;text-underline-offset:3px}
+  .page-sommaire .som-sub{font-size:12pt;color:var(--brand-2);margin:6mm 0 4mm}
+  .toc-list{flex:1;overflow:hidden;display:flex;flex-direction:column;gap:2.2mm;padding-top:1mm}
+  .toc-row{display:flex;align-items:baseline;gap:2mm;font-size:11pt}
+  .toc-idx{color:var(--brand);font-weight:700;flex:0 0 auto}
+  .toc-name{flex:0 0 auto;max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .toc-leader{flex:1;border-bottom:1px dotted #9aa4b0;transform:translateY(-3px)}
+  .toc-page{flex:0 0 auto;font-variant-numeric:tabular-nums;color:#222}
+  .toc-empty{color:#8a94a1;font-style:italic;font-size:11pt}
+
+  /* content */
+  .page-content-img{padding:26mm var(--padX) var(--padB)}
+  .page-content-img .img-wrap{flex:1;display:grid;place-items:center;min-height:0}
+  .page-content-img .img-wrap img{max-width:100%;max-height:100%;object-fit:contain}
+
+  .hidden-input{display:none}
+
+  /* ---------- Print ---------- */
+  @media print{
+    @page{size:A4;margin:0}
+    html,body{height:auto;overflow:visible;background:#fff}
+    .toolbar,.panel,.zoombar{display:none!important}
+    .workspace{display:block}
+    .canvas{padding:0;gap:0;display:block;overflow:visible}
+    #document{gap:0;transform:none!important;zoom:1!important;display:block}
+    .page{box-shadow:none;margin:0;break-after:page;page-break-after:always;width:210mm;height:297mm}
+    .page:last-child{break-after:auto;page-break-after:auto}
+    .cover .cov-logo-zone,.cover .cov-photo-zone{border:none!important}
+    [contenteditable].ph:empty:before{content:""}
+  }
+</style>
+</head>
+<body>
+
+<header class="toolbar" id="toolbar">
+  <div class="brand"><span class="mark">🗃️</span> <span>Constructeur de DOE <small>Dossier d'Ouvrage Exécuté</small></span></div>
+  <span class="dirty-dot" title="Modifications non enregistrées"></span>
+  <div class="spacer"></div>
+  <button class="tbtn" id="btnNew" title="Nouveau dossier">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nouveau
+  </button>
+  <button class="tbtn" id="btnLoad">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>Ouvrir JSON
+  </button>
+  <button class="tbtn" id="btnSave">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21V9m0 12l-4-4m4 4l4-4M4 7V5a2 2 0 012-2h12a2 2 0 012 2v2"/></svg>Enregistrer JSON
+  </button>
+  <button class="tbtn primary" id="btnPrint">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V3h12v6M6 18H4a2 2 0 01-2-2v-3a2 2 0 012-2h16a2 2 0 012 2v3a2 2 0 01-2 2h-2M6 14h12v7H6z"/></svg>Imprimer / PDF
+  </button>
+</header>
+
+<div class="workspace">
+  <!-- ---------- Panneau structure ---------- -->
+  <aside class="panel">
+    <div class="panel-section" style="flex:1">
+      <div class="sections-head">
+        <h2 style="margin:0">Sections</h2>
+      </div>
+      <button class="minibtn brand block" id="btnAddSection">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path d="M12 11v4M10 13h4"/></svg>
+        Nouvelle section
+      </button>
+      <div id="sectionsList" style="margin-top:12px"></div>
+    </div>
+  </aside>
+
+  <!-- ---------- Canevas document ---------- -->
+  <main class="canvas" id="canvas">
+    <div id="document"></div>
+  </main>
+</div>
+
+<div class="zoombar">
+  <button id="zoomOut" title="Réduire">−</button>
+  <span class="lvl" id="zoomLvl">Ajuster</span>
+  <button id="zoomIn" title="Agrandir">+</button>
+  <button id="zoomFit" title="Ajuster à la largeur">⤢</button>
+</div>
+
+<!-- inputs cachés -->
+<input type="file" id="inLogo" class="hidden-input" accept="image/*">
+<input type="file" id="inPhoto" class="hidden-input" accept="image/*">
+<input type="file" id="inSecImgs" class="hidden-input" accept="image/png,image/jpeg,image/webp" multiple>
+<input type="file" id="inJson" class="hidden-input" accept="application/json,.json">
+
+<script>
+"use strict";
+
+/* ============ État ============ */
+const uid = () => Math.random().toString(36).slice(2,9);
+function newState(){
+  return {
+    meta:{
+      title:"",
+      subtitle:"DOSSIER D'OUVRAGE EXÉCUTÉ",
+      footer:"SAS ANDRÉ TP – 1729 Route de Briançon – 05000 LA ROCHETTE\n04.92.51.20.45 – www.andretp.com"
+    },
+    logo:null,        // dataURL – repris en haut à droite de chaque page
+    photo:null,       // dataURL – photo de couverture
+    sections:[]       // { id, name, images:[{id, src, name}] }
+  };
+}
+let state = newState();
+let dirty = false;
+let activeSecForImport = null;
+
+/* ============ Utilitaires ============ */
+const $ = s => document.querySelector(s);
+const doc = $("#document");
+function h(tag, cls, props){
+  const e = document.createElement(tag);
+  if(cls) e.className = cls;
+  if(props) Object.assign(e, props);
+  return e;
+}
+function icon(path){
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+}
+function readAsDataURL(file){
+  return new Promise((res,rej)=>{
+    const r = new FileReader();
+    r.onload = ()=>res(r.result);
+    r.onerror = ()=>rej(new Error("Lecture impossible : "+file.name));
+    r.readAsDataURL(file);
+  });
+}
+function markDirty(){ dirty = true; document.body.classList.add("dirty"); }
+function totalImages(){ return state.sections.reduce((n,s)=>n+s.images.length,0); }
+
+/* ============ Rendu du panneau ============ */
+function renderSections(){
+  const list = $("#sectionsList");
+  list.innerHTML = "";
+  if(state.sections.length === 0){
+    list.append(h("div","empty-note",{textContent:"Aucune section. Crée un dossier pour commencer."}));
+    return;
+  }
+  state.sections.forEach((sec, i)=>{
+    const card = h("div","sec-card");
+
+    const top = h("div","sec-top");
+    top.innerHTML = `<span class="folder">${icon('<path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>')}</span>`;
+    const name = h("input","sec-name",{value:sec.name, type:"text"});
+    name.addEventListener("input", ()=>{ sec.name = name.value; markDirty(); renderDocument(); });
+    top.append(name);
+
+    const up = h("button","iconbtn",{innerHTML:icon('<path d="M18 15l-6-6-6 6"/>'), title:"Monter"});
+    up.disabled = i===0;
+    up.onclick = ()=>{ if(i>0){ [state.sections[i-1],state.sections[i]]=[state.sections[i],state.sections[i-1]]; changed(); } };
+    const down = h("button","iconbtn",{innerHTML:icon('<path d="M6 9l6 6 6-6"/>'), title:"Descendre"});
+    down.disabled = i===state.sections.length-1;
+    down.onclick = ()=>{ if(i<state.sections.length-1){ [state.sections[i+1],state.sections[i]]=[state.sections[i],state.sections[i+1]]; changed(); } };
+    const del = h("button","iconbtn danger",{innerHTML:icon('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>'), title:"Supprimer la section"});
+    del.onclick = ()=>{
+      if(confirm(`Supprimer la section « ${sec.name} » et ses ${sec.images.length} page(s) ?`)){
+        state.sections.splice(i,1); changed();
+      }
+    };
+    top.append(up,down,del);
+    card.append(top);
+
+    const body = h("div","sec-body");
+    body.append(h("div","sec-meta",{textContent:`${sec.images.length} page(s)`}));
+
+    const importBtn = h("button","minibtn block",{innerHTML:icon('<path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>')+" Importer des images"});
+    importBtn.onclick = ()=>{ activeSecForImport = sec.id; $("#inSecImgs").click(); };
+    body.append(importBtn);
+
+    // zone de dépôt
+    const drop = h("div","sec-drop",{textContent:"…ou glisser-déposer des images ici"});
+    drop.addEventListener("click", ()=>{ activeSecForImport = sec.id; $("#inSecImgs").click(); });
+    wireDrop(drop, files => addImagesToSection(sec, files));
+    body.append(drop);
+
+    if(sec.images.length){
+      const grid = h("div","thumbs");
+      sec.images.forEach((img, idx)=>{
+        const t = h("div","thumb",{draggable:true});
+        t.innerHTML = `<img src="${img.src}" alt=""><span class="num">${idx+1}</span>`;
+        const x = h("button","del",{innerHTML:icon('<path d="M6 6l12 12M18 6L6 18"/>'), title:"Supprimer"});
+        x.onclick = (e)=>{ e.stopPropagation(); sec.images.splice(idx,1); changed(); };
+        t.append(x);
+        // réordonnancement par glisser
+        t.addEventListener("dragstart", e=>{ e.dataTransfer.setData("text/plain", idx); e.dataTransfer.effectAllowed="move"; });
+        t.addEventListener("dragover", e=>{ e.preventDefault(); t.classList.add("dragover"); });
+        t.addEventListener("dragleave", ()=> t.classList.remove("dragover"));
+        t.addEventListener("drop", e=>{
+          e.preventDefault(); t.classList.remove("dragover");
+          const from = parseInt(e.dataTransfer.getData("text/plain"),10);
+          if(Number.isInteger(from) && from!==idx){
+            const moved = sec.images.splice(from,1)[0];
+            sec.images.splice(idx,0,moved);
+            changed();
+          }
+        });
+        grid.append(t);
+      });
+      body.append(grid);
+    }
+
+    card.append(body);
+    list.append(card);
+  });
+}
+
+function changed(){ markDirty(); renderSections(); renderDocument(); }
+
+/* ============ Import d'images ============ */
+async function addImagesToSection(sec, fileList){
+  const files = [...fileList].filter(f=>f.type.startsWith("image/"));
+  if(!files.length) return;
+  for(const f of files){
+    try{ const src = await readAsDataURL(f); sec.images.push({id:uid(), src, name:f.name}); }
+    catch(err){ alert(err.message); }
+  }
+  changed();
+}
+
+/* ============ Rendu du document (A4) ============ */
+function pageEl(extraCls){
+  const p = h("div","page"+(extraCls?" "+extraCls:""));
+  return p;
+}
+function addLogoAndNum(page, pageNumber){
+  if(state.logo){
+    const img = h("img","page-logo"); img.src = state.logo; page.append(img);
+  }
+  if(pageNumber != null){
+    page.append(h("div","page-num",{textContent:String(pageNumber)}));
+  }
+}
+
+function buildCover(){
+  const page = pageEl("cover");
+  const c = h("div","page-content");
+
+  const logoZone = h("div","cov-logo-zone"+(state.logo?" has":""));
+  logoZone.innerHTML = state.logo ? `<img src="${state.logo}">` : "Cliquer pour importer le logo";
+  logoZone.addEventListener("click", ()=> $("#inLogo").click());
+  wireDrop(logoZone, async files=>{ const f=[...files].find(x=>x.type.startsWith("image/")); if(f){ state.logo=await readAsDataURL(f); changed(); } });
+
+  const title = h("div","cov-title ph"); title.contentEditable="true"; title.dataset.ph="Titre du dossier";
+  title.textContent = state.meta.title;
+  title.addEventListener("input", ()=>{ state.meta.title = title.textContent.trim(); markDirty(); });
+
+  const sub = h("div","cov-sub ph"); sub.contentEditable="true"; sub.dataset.ph="Sous-titre";
+  sub.textContent = state.meta.subtitle;
+  sub.addEventListener("input", ()=>{ state.meta.subtitle = sub.textContent.trim(); markDirty(); });
+
+  const photoZone = h("div","cov-photo-zone"+(state.photo?" has":""));
+  photoZone.innerHTML = state.photo ? `<img src="${state.photo}">` : "Cliquer pour importer la photo de couverture";
+  photoZone.addEventListener("click", ()=> $("#inPhoto").click());
+  wireDrop(photoZone, async files=>{ const f=[...files].find(x=>x.type.startsWith("image/")); if(f){ state.photo=await readAsDataURL(f); changed(); } });
+
+  const footer = h("div","cov-footer ph"); footer.contentEditable="true"; footer.dataset.ph="Pied de page";
+  footer.innerHTML = escapeHtml(state.meta.footer).replace(/\n/g,"<br>");
+  footer.addEventListener("input", ()=>{ state.meta.footer = footer.innerText.trim(); markDirty(); });
+
+  c.append(logoZone, title, sub, photoZone, footer);
+  page.append(c);
+  return page;
+}
+function escapeHtml(s){ return s.replace(/[&<>]/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
+
+function romanOrNum(i){ return i; }
+
+/* Construit les pages du sommaire en paginant selon la hauteur réelle */
+function buildSommaire(entries){
+  const pages = [];
+  function makePage(){
+    const page = pageEl("page-sommaire");
+    const c = h("div","page-content");
+    if(pages.length===0){
+      c.append(h("div","som-title",{textContent:"SOMMAIRE"}));
+    }
+    c.append(h("div","som-sub",{textContent: pages.length===0 ? "Table des matières" : "Table des matières (suite)"}));
+    const listEl = h("div","toc-list");
+    c.append(listEl);
+    page.append(c);
+    doc.append(page);            // doit être dans le DOM pour mesurer
+    const rec = {page, listEl};
+    pages.push(rec);
+    return rec;
+  }
+  let cur = makePage();
+  if(entries.length===0){
+    cur.listEl.append(h("div","toc-empty",{textContent:"Aucune section créée pour le moment."}));
+    return pages;
+  }
+  entries.forEach(en=>{
+    const row = h("div","toc-row");
+    row.innerHTML =
+      `<span class="toc-idx">${en.index}</span>`+
+      `<span class="toc-name">${escapeHtml(en.name)}</span>`+
+      `<span class="toc-leader"></span>`+
+      `<span class="toc-page">${en.page}</span>`;
+    cur.listEl.append(row);
+    // débordement ? -> nouvelle page
+    if(cur.listEl.scrollHeight > cur.listEl.clientHeight + 1){
+      if(cur.listEl.children.length > 1){       // laisser au moins une ligne par page
+        cur.listEl.removeChild(row);
+        cur = makePage();
+        cur.listEl.append(row);
+      }
+    }
+  });
+  return pages;
+}
+
+function buildContentPage(imgObj, pageNumber){
+  const page = pageEl("page-content-img");
+  addLogoAndNum(page, pageNumber);
+  const wrap = h("div","img-wrap");
+  const im = h("img"); im.src = imgObj.src;
+  wrap.append(im);
+  page.append(wrap);
+  return page;
+}
+
+function renderDocument(){
+  doc.innerHTML = "";
+
+  // 1) Couverture (page 1)
+  doc.append(buildCover());
+
+  // 2) Sommaire : on prépare les entrées (numéros de page calculés après connaissance du nb de pages sommaire)
+  const entries = state.sections.map((s,i)=>({ index:i+1, name:s.name, page:0, count:s.images.length }));
+
+  // Première passe : paginer avec un placeholder pour connaître S (nb de pages sommaire)
+  //  -> le nombre de pages sommaire dépend uniquement du nombre d'entrées, pas des numéros.
+  const somPages = buildSommaire(entries);
+  const S = somPages.length;
+
+  // 3) Calcul des numéros de page absolus
+  //    couverture = 1 ; sommaire = 2 .. 1+S ; contenu à partir de S+2
+  let running = 1 + S + 1;             // 1re page de contenu
+  state.sections.forEach((s,i)=>{
+    entries[i].page = running;         // page de début de la section
+    running += s.images.length;
+  });
+
+  // remplir les numéros dans les lignes déjà rendues du sommaire
+  const rows = doc.querySelectorAll(".toc-row .toc-page");
+  rows.forEach((el,i)=>{ if(entries[i]) el.textContent = entries[i].page; });
+
+  // 4) Pages de contenu
+  let pageNo = 1 + S + 1;
+  state.sections.forEach(sec=>{
+    sec.images.forEach(img=>{
+      doc.append(buildContentPage(img, pageNo));
+      pageNo++;
+    });
+  });
+
+  applyZoom();
+}
+
+/* ============ Zoom / ajustement ============ */
+const A4_PX = 794; // 210mm à 96dpi
+let zoom = null;   // null = ajuster automatiquement
+function applyZoom(){
+  let scale;
+  if(zoom === null){
+    scale = currentAutoScale();
+    $("#zoomLvl").textContent = "Ajuster";
+  }else{
+    scale = zoom;
+    $("#zoomLvl").textContent = Math.round(zoom*100)+"%";
+  }
+  doc.style.zoom = scale;
+}
+window.addEventListener("resize", ()=>{ if(zoom===null) applyZoom(); });
+
+/* ============ Drag & drop générique ============ */
+function wireDrop(el, onFiles){
+  ["dragenter","dragover"].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();el.classList.add("drag");}));
+  ["dragleave","dragend"].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();el.classList.remove("drag");}));
+  el.addEventListener("drop", e=>{
+    e.preventDefault();e.stopPropagation();el.classList.remove("drag");
+    if(e.dataTransfer?.files?.length) onFiles(e.dataTransfer.files);
+  });
+}
+
+/* ============ Save / Load / Print / New ============ */
+function saveJSON(){
+  const data = JSON.stringify(state, null, 0);
+  const blob = new Blob([data], {type:"application/json"});
+  const a = h("a");
+  const name = (state.meta.title || "DOE").replace(/[^\w\-À-ÿ ]+/g,"").trim().replace(/\s+/g,"_") || "DOE";
+  a.href = URL.createObjectURL(blob);
+  a.download = name + ".json";
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+  dirty = false; document.body.classList.remove("dirty");
+}
+function loadJSON(file){
+  const r = new FileReader();
+  r.onload = ()=>{
+    try{
+      const obj = JSON.parse(r.result);
+      if(!obj || typeof obj!=="object" || !("sections" in obj)) throw new Error("format");
+      // normalisation défensive
+      state = {
+        meta:{
+          title: obj.meta?.title ?? "",
+          subtitle: obj.meta?.subtitle ?? "DOSSIER D'OUVRAGE EXÉCUTÉ",
+          footer: obj.meta?.footer ?? ""
+        },
+        logo: obj.logo ?? null,
+        photo: obj.photo ?? null,
+        sections: Array.isArray(obj.sections) ? obj.sections.map(s=>({
+          id: s.id || uid(),
+          name: s.name || "Section",
+          images: Array.isArray(s.images) ? s.images.map(im=>({id:im.id||uid(), src:im.src, name:im.name||""})).filter(im=>im.src) : []
+        })) : []
+      };
+      renderAll();
+      dirty = false; document.body.classList.remove("dirty");
+    }catch(e){
+      alert("Fichier illisible. Sélectionne un JSON exporté par cet outil.");
+    }
+  };
+  r.readAsText(file);
+}
+function newDOE(){
+  if(dirty && !confirm("Créer un nouveau dossier ? Les modifications non enregistrées seront perdues.")) return;
+  state = newState();
+  renderAll();
+  dirty = false; document.body.classList.remove("dirty");
+}
+function renderAll(){ renderSections(); renderDocument(); }
+
+/* ============ Câblage UI ============ */
+$("#inLogo").addEventListener("change", async e=>{ if(e.target.files[0]){ state.logo=await readAsDataURL(e.target.files[0]); markDirty(); renderDocument(); } e.target.value=""; });
+$("#inPhoto").addEventListener("change", async e=>{ if(e.target.files[0]){ state.photo=await readAsDataURL(e.target.files[0]); markDirty(); renderDocument(); } e.target.value=""; });
+$("#inSecImgs").addEventListener("change", async e=>{
+  const sec = state.sections.find(s=>s.id===activeSecForImport);
+  if(sec && e.target.files.length) await addImagesToSection(sec, e.target.files);
+  activeSecForImport=null; e.target.value="";
+});
+$("#inJson").addEventListener("change", e=>{ if(e.target.files[0]) loadJSON(e.target.files[0]); e.target.value=""; });
+
+$("#btnAddSection").addEventListener("click", ()=>{
+  const n = state.sections.length+1;
+  state.sections.push({id:uid(), name:`Section ${n}`, images:[]});
+  changed();
+});
+$("#btnSave").addEventListener("click", saveJSON);
+$("#btnLoad").addEventListener("click", ()=> $("#inJson").click());
+$("#btnNew").addEventListener("click", newDOE);
+$("#btnPrint").addEventListener("click", ()=>{ if(zoom!==null){ zoom=null; } applyZoom(); setTimeout(()=>window.print(),60); });
+
+$("#zoomIn").onclick = ()=>{ zoom = Math.min(1.6, (zoom??currentAutoScale())+0.1); applyZoom(); };
+$("#zoomOut").onclick = ()=>{ zoom = Math.max(0.25, (zoom??currentAutoScale())-0.1); applyZoom(); };
+$("#zoomFit").onclick = ()=>{ zoom=null; applyZoom(); };
+function currentAutoScale(){
+  const canvas=$("#canvas");
+  return Math.min(1,(canvas.clientWidth-56)/A4_PX);
+}
+
+window.addEventListener("beforeunload", e=>{ if(dirty){ e.preventDefault(); e.returnValue=""; } });
+
+/* ============ Démarrage ============ */
+renderAll();
+</script>
+</body>
+</html>

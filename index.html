@@ -128,6 +128,11 @@
   .jalon-group.collapsed>.jalon-sections{display:none}
   .jalon-caret{transition:transform .15s}
   .jalon-group.collapsed .jalon-caret{transform:rotate(-90deg)}
+  .section-subs{margin-left:16px}
+  .section-subs:empty{display:none}
+  .section-group.collapsed>.node-card>.sec-body{display:none}
+  .section-group.collapsed>.section-subs{display:none}
+  .section-group.collapsed>.node-card>.sec-top .sec-caret{transform:rotate(-90deg)}
 
   /* poignée + marqueurs de dépôt */
   .grip{cursor:grab;flex:0 0 auto;display:grid;place-items:center;padding:2px;opacity:.85}
@@ -151,7 +156,6 @@
   .iconbtn:hover{background:#e9eef5;color:var(--ink)}
   .iconbtn.danger:hover{background:#fdeaea;color:var(--danger)}
   .node-card>.sec-top .iconbtn.danger{color:var(--danger)}
-  .node-card.soussection{margin-left:18px}
   .tp-ic{flex:0 0 auto;display:grid;place-items:center;color:var(--muted)}
   .tp-ic svg{width:15px;height:15px}
   .node-card.section .tp-ic{color:var(--brand)}
@@ -241,7 +245,9 @@
   .page-content-img{padding:26mm var(--padX) var(--padB)}
   .page-content-img .img-wrap{flex:1;display:grid;place-items:center;min-height:0}
   .page-content-img .img-wrap img{max-width:100%;max-height:100%;object-fit:contain}
-  .sec-head{position:absolute;top:10mm;left:var(--padX);max-width:120mm;font-size:11pt;font-weight:700;text-decoration:underline;text-underline-offset:2px;color:#1a1a1a}
+  .sec-head{position:absolute;top:10mm;left:var(--padX);max-width:120mm;color:#1a1a1a}
+  .sec-head .sh-main{font-size:11pt;font-weight:700;text-decoration:underline;text-underline-offset:2px}
+  .sec-head .sh-sub{font-size:10.5pt;font-style:italic;margin-top:1.5mm}
 
   /* intercalaire de chapitre */
   .page-divider .page-content{justify-content:center}
@@ -410,26 +416,37 @@ function renderSections(){
     list.append(h("div","empty-note",{textContent:"Rien pour l'instant. Ajoute un jalon (chapitre) ou une section."}));
     return;
   }
-  let jc=0, sc=0, ssc=0, curSec="";
-  let container = list;                 // conteneur courant où vont sections/sous-sections
+  let jc=0, sc=0, ssc=0, curSecNum="";
+  let jalonWrap = list;        // conteneur des sections (et éléments orphelins)
+  let subsWrap = null;         // conteneur des sous-sections de la section courante
   state.items.forEach(item=>{
     if(item.type==="jalon"){
-      jc++; sc=0; ssc=0; curSec="";
+      jc++; sc=0; ssc=0; subsWrap=null; curSecNum="";
       const group = h("div","jalon-group");
       if(collapsedNodes.has(item.id)) group.classList.add("collapsed");
       group.append(renderJalon(item, String(jc), group));
       const secWrap = h("div","jalon-sections");
       group.append(secWrap);
       list.append(group);
-      container = secWrap;
+      jalonWrap = secWrap;
     } else if(item.type==="section"){
-      sc++; ssc=0; const num = jc>0 ? `${jc}.${sc}` : `${sc}`; curSec = num;
-      container.append(renderLeafCard(item, num, "section"));
+      sc++; ssc=0; const num = jc>0 ? `${jc}.${sc}` : `${sc}`; curSecNum = num;
+      const sgroup = h("div","section-group");
+      sgroup.append(renderLeafCard(item, num, "section", sgroup));
+      const subs = h("div","section-subs");
+      sgroup.append(subs);
+      jalonWrap.append(sgroup);
+      subsWrap = subs;
     } else { // soussection
-      ssc++; const num = curSec ? `${curSec}.${ssc}` : `${ssc}`;
-      container.append(renderLeafCard(item, num, "soussection"));
+      ssc++; const num = curSecNum ? `${curSecNum}.${ssc}` : `${ssc}`;
+      (subsWrap || jalonWrap).append(renderLeafCard(item, num, "soussection", null));
     }
   });
+  updateCollapseLabel();
+}
+function updateCollapseLabel(){
+  const ids = state.items.map(i=>i.id);
+  $("#btnCollapseAll").textContent = (ids.length && ids.every(id=>collapsedNodes.has(id))) ? "Tout déplier" : "Tout réduire";
 }
 
 function makeGrip(row, item, extraCls){
@@ -461,7 +478,7 @@ function renderJalon(item, num, group){
   const row = h("div","jalon drag-item"); row.dataset.id = item.id;
   row.append(makeGrip(row, item));
   const caret = h("button","iconbtn sec-caret jalon-caret",{innerHTML:icon('<path d="M6 9l6 6 6-6"/>'), title:"Réduire / déplier le jalon"});
-  caret.onclick = ()=>{ collapsedNodes.has(item.id)?collapsedNodes.delete(item.id):collapsedNodes.add(item.id); group.classList.toggle("collapsed"); };
+  caret.onclick = ()=>{ collapsedNodes.has(item.id)?collapsedNodes.delete(item.id):collapsedNodes.add(item.id); group.classList.toggle("collapsed"); updateCollapseLabel(); };
   row.append(caret);
   row.append(iconSpan(folderIcon()));
   row.append(h("span","jalon-num",{textContent:num}));
@@ -472,14 +489,15 @@ function renderJalon(item, num, group){
   return row;
 }
 
-function renderLeafCard(sec, number, kind){
+function renderLeafCard(sec, number, kind, groupEl){
   const card = h("div","node-card "+kind+" sec-card drag-item"); card.dataset.id = sec.id;
-  if(collapsedNodes.has(sec.id)) card.classList.add("collapsed");
+  const target = groupEl || card;                 // section -> replie le groupe (corps + sous-sections)
+  if(collapsedNodes.has(sec.id)) target.classList.add("collapsed");
 
   const top = h("div","sec-top");
   top.append(makeGrip(card, sec, "muted"));
   const caret = h("button","iconbtn sec-caret",{innerHTML:icon('<path d="M6 9l6 6 6-6"/>'), title:"Réduire / déplier"});
-  caret.onclick = ()=>{ collapsedNodes.has(sec.id)?collapsedNodes.delete(sec.id):collapsedNodes.add(sec.id); card.classList.toggle("collapsed"); };
+  caret.onclick = ()=>{ collapsedNodes.has(sec.id)?collapsedNodes.delete(sec.id):collapsedNodes.add(sec.id); target.classList.toggle("collapsed"); updateCollapseLabel(); };
   top.append(caret);
   top.append(iconSpan(kind==="soussection" ? dotIcon() : flagIcon()));
   top.append(h("span","node-num",{textContent:number}));
@@ -702,9 +720,14 @@ function buildSommaire(entries){
 function buildImagePage(p, pageNumber){
   const page = pageEl("page-content-img");
   addLogoAndNum(page, pageNumber);
-  if(p.first){                          // 1re page de section : bandeau haut-gauche gras souligné
+  if(p.first){                          // 1re page : bandeau haut-gauche
     const head = h("div","sec-head");
-    head.textContent = p.secTitle ? `${p.secNum} - ${p.secTitle}` : p.secNum;
+    const mainNum = p.parent ? p.parent.num : p.secNum;
+    const mainTitle = p.parent ? p.parent.title : p.secTitle;
+    head.append(h("div","sh-main",{textContent: mainTitle ? `${mainNum} - ${mainTitle}` : mainNum}));
+    if(p.parent){                       // sous-section : ligne en italique en dessous
+      head.append(h("div","sh-sub",{textContent: p.secTitle ? `${p.secNum} - ${p.secTitle}` : p.secNum}));
+    }
     page.append(head);
   }
   const wrap = h("div","img-wrap");
@@ -727,21 +750,21 @@ function buildDividerPage(p){            // intercalaire de chapitre (ni logo ni
 // Construit en un seul parcours : entrées du sommaire + liste ordonnée des pages.
 // Un jalon => une page intercalaire ; une section => une page par image. offset = index de la 1re page.
 function buildDocModel(){
-  const toc=[], pages=[]; let jc=0, sc=0, ssc=0, curSec="";
+  const toc=[], pages=[]; let jc=0, sc=0, ssc=0, curSecNum="", curSecName="";
   state.items.forEach(item=>{
     if(item.type==="jalon"){
-      jc++; sc=0; ssc=0; curSec=""; const num=String(jc);
+      jc++; sc=0; ssc=0; curSecNum=""; curSecName=""; const num=String(jc);
       const offset=pages.length;
       pages.push({type:"divider", number:num, title:item.title});
       toc.push({depth:0, kind:"chapter", number:num, title:item.title, offset, page:0});
     }else if(item.type==="section"){
-      sc++; ssc=0; const num = jc>0 ? `${jc}.${sc}` : `${sc}`; curSec = num;
+      sc++; ssc=0; const num = jc>0 ? `${jc}.${sc}` : `${sc}`; curSecNum = num; curSecName = item.name;
       toc.push({depth:1, kind:"section", number:num, title:item.name, offset:pages.length, page:0});
       item.images.forEach((img,ii)=> pages.push({type:"image", src:img.src, secNum:num, secTitle:item.name, first: ii===0}));
     }else{ // soussection
-      ssc++; const num = curSec ? `${curSec}.${ssc}` : `${ssc}`;
+      ssc++; const num = curSecNum ? `${curSecNum}.${ssc}` : `${ssc}`;
       toc.push({depth:2, kind:"section", number:num, title:item.name, offset:pages.length, page:0});
-      item.images.forEach((img,ii)=> pages.push({type:"image", src:img.src, secNum:num, secTitle:item.name, first: ii===0}));
+      item.images.forEach((img,ii)=> pages.push({type:"image", src:img.src, secNum:num, secTitle:item.name, first: ii===0, parent:{num:curSecNum, title:curSecName}}));
     }
   });
   return {toc, pages};
@@ -852,6 +875,7 @@ function loadJSON(file){
         items: toItems(obj)
       };
       collapsedNodes.clear();
+      state.items.forEach(i=>collapsedNodes.add(i.id));   // tout replié par défaut
       renderAll();
       dirty = false; document.body.classList.remove("dirty");
     }catch(e){
@@ -878,14 +902,14 @@ $("#inSecImgs").addEventListener("change", async e=>{
 });
 $("#inJson").addEventListener("change", e=>{ if(e.target.files[0]) loadJSON(e.target.files[0]); e.target.value=""; });
 
-$("#btnAddJalon").addEventListener("click", ()=>{ state.items.push(newJalon()); changed(); });
-$("#btnAddSection").addEventListener("click", ()=>{ state.items.push(newSection()); changed(); });
-$("#btnAddSub").addEventListener("click", ()=>{ state.items.push(newSous()); changed(); });
+$("#btnAddJalon").addEventListener("click", ()=>{ const it=newJalon(); collapsedNodes.add(it.id); state.items.push(it); changed(); });
+$("#btnAddSection").addEventListener("click", ()=>{ const it=newSection(); collapsedNodes.add(it.id); state.items.push(it); changed(); });
+$("#btnAddSub").addEventListener("click", ()=>{ const it=newSous(); collapsedNodes.add(it.id); state.items.push(it); changed(); });
 $("#btnCollapseAll").addEventListener("click", ()=>{
-  const ids = state.items.filter(i=>i.type==="jalon").map(i=>i.id);
+  const ids = state.items.map(i=>i.id);
   const allCollapsed = ids.length>0 && ids.every(id=>collapsedNodes.has(id));
-  if(allCollapsed){ ids.forEach(id=>collapsedNodes.delete(id)); $("#btnCollapseAll").textContent="Tout réduire"; }
-  else{ ids.forEach(id=>collapsedNodes.add(id)); $("#btnCollapseAll").textContent="Tout déplier"; }
+  if(allCollapsed){ collapsedNodes.clear(); }
+  else{ ids.forEach(id=>collapsedNodes.add(id)); }
   renderSections();
 });
 $("#btnSave").addEventListener("click", saveJSON);

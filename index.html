@@ -104,6 +104,10 @@
   }
   .sec-top{display:flex;align-items:center;gap:6px;padding:8px 8px 8px 10px;background:#f7f9fc;border-bottom:1px solid var(--line)}
   .sec-top .folder{color:var(--brand);flex:0 0 auto}
+  .sec-caret{transition:transform .15s;color:var(--muted)}
+  .sec-card.collapsed .sec-caret{transform:rotate(-90deg)}
+  .sec-card.collapsed .sec-body{display:none}
+  .sec-count{font-size:11px;color:var(--muted);white-space:nowrap;flex:0 0 auto;padding:0 2px}
   .sec-name{
     flex:1;border:none;background:transparent;font:inherit;font-size:13px;font-weight:600;color:var(--ink);
     padding:4px 6px;border-radius:5px
@@ -200,6 +204,12 @@
 
   .hidden-input{display:none}
 
+  .busy{position:fixed;inset:0;background:rgba(22,32,46,.45);display:grid;place-items:center;z-index:50}
+  .busy-box{background:#fff;border-radius:10px;padding:20px 26px;display:flex;align-items:center;gap:14px;box-shadow:0 10px 40px rgba(0,0,0,.25);font-size:14px;color:var(--ink)}
+  .spinner{width:22px;height:22px;border:3px solid #dfe5ec;border-top-color:var(--brand);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media(prefers-reduced-motion:reduce){.spinner{animation:none}}
+
   /* ---------- Print ---------- */
   @media print{
     @page{size:A4;margin:0}
@@ -241,6 +251,7 @@
     <div class="panel-section" style="flex:1">
       <div class="sections-head">
         <h2 style="margin:0">Sections</h2>
+        <button class="minibtn" id="btnCollapseAll" style="padding:4px 8px;font-size:11.5px">Tout réduire</button>
       </div>
       <button class="minibtn brand block" id="btnAddSection">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path d="M12 11v4M10 13h4"/></svg>
@@ -266,9 +277,15 @@
 <!-- inputs cachés -->
 <input type="file" id="inLogo" class="hidden-input" accept="image/*">
 <input type="file" id="inPhoto" class="hidden-input" accept="image/*">
-<input type="file" id="inSecImgs" class="hidden-input" accept="image/png,image/jpeg,image/webp" multiple>
+<input type="file" id="inSecImgs" class="hidden-input" accept="image/png,image/jpeg,image/webp,application/pdf" multiple>
 <input type="file" id="inJson" class="hidden-input" accept="application/json,.json">
 
+<div id="busy" class="busy" style="display:none"><div class="busy-box"><div class="spinner"></div><span id="busyMsg">Traitement…</span></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  if(window.pdfjsLib){ pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; }
+</script>
 <script>
 "use strict";
 
@@ -287,6 +304,7 @@ function newState(){
   };
 }
 let state = newState();
+const collapsedSecs = new Set();   // ids des sections repliées (UI, non sauvegardé)
 let dirty = false;
 let activeSecForImport = null;
 
@@ -323,12 +341,20 @@ function renderSections(){
   }
   state.sections.forEach((sec, i)=>{
     const card = h("div","sec-card");
+    if(collapsedSecs.has(sec.id)) card.classList.add("collapsed");
 
     const top = h("div","sec-top");
-    top.innerHTML = `<span class="folder">${icon('<path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>')}</span>`;
+    const caret = h("button","iconbtn sec-caret",{innerHTML:icon('<path d="M6 9l6 6 6-6"/>'), title:"Réduire / déplier"});
+    caret.onclick = ()=>{
+      if(collapsedSecs.has(sec.id)) collapsedSecs.delete(sec.id); else collapsedSecs.add(sec.id);
+      card.classList.toggle("collapsed");
+    };
+    top.append(caret);
+    top.insertAdjacentHTML("beforeend", `<span class="folder">${icon('<path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>')}</span>`);
     const name = h("input","sec-name",{value:sec.name, type:"text"});
     name.addEventListener("input", ()=>{ sec.name = name.value; markDirty(); renderDocument(); });
     top.append(name);
+    top.append(h("span","sec-count",{textContent:`${sec.images.length} p.`}));
 
     const up = h("button","iconbtn",{innerHTML:icon('<path d="M18 15l-6-6-6 6"/>'), title:"Monter"});
     up.disabled = i===0;
@@ -348,14 +374,14 @@ function renderSections(){
     const body = h("div","sec-body");
     body.append(h("div","sec-meta",{textContent:`${sec.images.length} page(s)`}));
 
-    const importBtn = h("button","minibtn block",{innerHTML:icon('<path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>')+" Importer des images"});
+    const importBtn = h("button","minibtn block",{innerHTML:icon('<path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>')+" Importer images / PDF"});
     importBtn.onclick = ()=>{ activeSecForImport = sec.id; $("#inSecImgs").click(); };
     body.append(importBtn);
 
     // zone de dépôt
-    const drop = h("div","sec-drop",{textContent:"…ou glisser-déposer des images ici"});
+    const drop = h("div","sec-drop",{textContent:"…ou glisser-déposer des images / un PDF ici"});
     drop.addEventListener("click", ()=>{ activeSecForImport = sec.id; $("#inSecImgs").click(); });
-    wireDrop(drop, files => addImagesToSection(sec, files));
+    wireDrop(drop, files => addFilesToSection(sec, files));
     body.append(drop);
 
     if(sec.images.length){
@@ -391,14 +417,55 @@ function renderSections(){
 
 function changed(){ markDirty(); renderSections(); renderDocument(); }
 
-/* ============ Import d'images ============ */
-async function addImagesToSection(sec, fileList){
-  const files = [...fileList].filter(f=>f.type.startsWith("image/"));
-  if(!files.length) return;
-  for(const f of files){
-    try{ const src = await readAsDataURL(f); sec.images.push({id:uid(), src, name:f.name}); }
-    catch(err){ alert(err.message); }
+/* ============ Import images / PDF ============ */
+function showBusy(msg){ $("#busyMsg").textContent = msg || "Traitement…"; $("#busy").style.display="grid"; }
+function setBusy(msg){ $("#busyMsg").textContent = msg; }
+function hideBusy(){ $("#busy").style.display="none"; }
+
+// Rend chaque page d'un PDF en image (JPEG ~200 dpi normalisé A4) -> [{src,name}]
+async function renderPdfToImages(file, onProgress){
+  if(!window.pdfjsLib) throw new Error("Bibliothèque PDF non chargée : une connexion internet est nécessaire pour importer un PDF.");
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+  const out = [];
+  const base = file.name.replace(/\.pdf$/i,"");
+  const TARGET_W = 1654; // ~200 dpi sur une largeur A4
+  for(let i=1;i<=pdf.numPages;i++){
+    if(onProgress) onProgress(i, pdf.numPages);
+    const page = await pdf.getPage(i);
+    const v1 = page.getViewport({scale:1});
+    let scale = TARGET_W / v1.width;
+    scale = Math.max(0.5, Math.min(scale, 3));   // borne pour éviter les pages géantes
+    const viewport = page.getViewport({scale});
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(viewport.width);
+    canvas.height = Math.round(viewport.height);
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0,0,canvas.width,canvas.height);
+    await page.render({canvasContext:ctx, viewport}).promise;
+    out.push({ id:uid(), src:canvas.toDataURL("image/jpeg",0.9), name:`${base} p.${i}` });
+    page.cleanup();
   }
+  return out;
+}
+
+async function addFilesToSection(sec, fileList){
+  const files = [...fileList].filter(f => f.type.startsWith("image/") || f.type==="application/pdf" || /\.pdf$/i.test(f.name));
+  if(!files.length) return;
+  showBusy("Import en cours…");
+  try{
+    for(const f of files){
+      if(f.type==="application/pdf" || /\.pdf$/i.test(f.name)){
+        try{
+          const pages = await renderPdfToImages(f, (i,n)=> setBusy(`Import du PDF « ${f.name} » — page ${i}/${n}…`));
+          sec.images.push(...pages);
+        }catch(err){ alert(err.message); }
+      }else{
+        try{ const src = await readAsDataURL(f); sec.images.push({id:uid(), src, name:f.name}); }
+        catch(err){ alert(err.message); }
+      }
+    }
+  }finally{ hideBusy(); }
   changed();
 }
 
@@ -621,7 +688,7 @@ $("#inLogo").addEventListener("change", async e=>{ if(e.target.files[0]){ state.
 $("#inPhoto").addEventListener("change", async e=>{ if(e.target.files[0]){ state.photo=await readAsDataURL(e.target.files[0]); markDirty(); renderDocument(); } e.target.value=""; });
 $("#inSecImgs").addEventListener("change", async e=>{
   const sec = state.sections.find(s=>s.id===activeSecForImport);
-  if(sec && e.target.files.length) await addImagesToSection(sec, e.target.files);
+  if(sec && e.target.files.length) await addFilesToSection(sec, e.target.files);
   activeSecForImport=null; e.target.value="";
 });
 $("#inJson").addEventListener("change", e=>{ if(e.target.files[0]) loadJSON(e.target.files[0]); e.target.value=""; });
@@ -630,6 +697,12 @@ $("#btnAddSection").addEventListener("click", ()=>{
   const n = state.sections.length+1;
   state.sections.push({id:uid(), name:`Section ${n}`, images:[]});
   changed();
+});
+$("#btnCollapseAll").addEventListener("click", ()=>{
+  const allCollapsed = state.sections.length>0 && state.sections.every(s=>collapsedSecs.has(s.id));
+  if(allCollapsed){ collapsedSecs.clear(); $("#btnCollapseAll").textContent="Tout réduire"; }
+  else{ state.sections.forEach(s=>collapsedSecs.add(s.id)); $("#btnCollapseAll").textContent="Tout déplier"; }
+  renderSections();
 });
 $("#btnSave").addEventListener("click", saveJSON);
 $("#btnLoad").addEventListener("click", ()=> $("#inJson").click());

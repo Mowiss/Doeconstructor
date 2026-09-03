@@ -54,6 +54,8 @@
   .tbtn.primary{background:#fff;color:var(--brand);border-color:#fff;font-weight:600}
   .tbtn.primary:hover{background:#eef3fb}
   .tbtn svg{width:15px;height:15px}
+  .tbtn.icon{padding:8px;gap:0}
+  .tbtn.icon svg{width:20px;height:20px}
   .dirty-dot{width:8px;height:8px;border-radius:50%;background:#ffd24a;display:none}
   .dirty .dirty-dot{display:inline-block}
 
@@ -122,6 +124,7 @@
   .jalon-title:focus{outline:none;background:rgba(255,255,255,.15)}
   .jalon .iconbtn{color:#fff}
   .jalon .iconbtn:hover{background:rgba(255,255,255,.2)}
+  .jalon .tp-ic{color:#fff}
   .jalon-group.collapsed>.jalon-sections{display:none}
   .jalon-caret{transition:transform .15s}
   .jalon-group.collapsed .jalon-caret{transform:rotate(-90deg)}
@@ -147,7 +150,12 @@
   }
   .iconbtn:hover{background:#e9eef5;color:var(--ink)}
   .iconbtn.danger:hover{background:#fdeaea;color:var(--danger)}
-  .node-card.section>.sec-top .iconbtn.danger{color:var(--danger)}
+  .node-card>.sec-top .iconbtn.danger{color:var(--danger)}
+  .node-card.soussection{margin-left:18px}
+  .tp-ic{flex:0 0 auto;display:grid;place-items:center;color:var(--muted)}
+  .tp-ic svg{width:15px;height:15px}
+  .node-card.section .tp-ic{color:var(--brand)}
+  .node-card.soussection .tp-ic{color:#7a8695}
   .iconbtn svg{width:15px;height:15px}
   .iconbtn[disabled]{opacity:.3;cursor:default}
   .iconbtn[disabled]:hover{background:transparent}
@@ -268,20 +276,17 @@
 <body>
 
 <header class="toolbar" id="toolbar">
-  <div class="brand"><span class="mark">🗃️</span> <span>Constructeur de DOE <small>Dossier d'Ouvrage Exécuté</small></span></div>
+  <div class="brand"><span class="mark">🗃️</span> <span>DOEConstructor</span></div>
   <span class="dirty-dot" title="Modifications non enregistrées"></span>
   <div class="spacer"></div>
-  <button class="tbtn" id="btnNew" title="Nouveau dossier">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nouveau
+  <button class="tbtn icon" id="btnLoad" title="Ouvrir un fichier JSON">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
   </button>
-  <button class="tbtn" id="btnLoad">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>Ouvrir JSON
+  <button class="tbtn icon" id="btnSave" title="Enregistrer en JSON">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21V9m0 12l-4-4m4 4l4-4M4 7V5a2 2 0 012-2h12a2 2 0 012 2v2"/></svg>
   </button>
-  <button class="tbtn" id="btnSave">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21V9m0 12l-4-4m4 4l4-4M4 7V5a2 2 0 012-2h12a2 2 0 012 2v2"/></svg>Enregistrer JSON
-  </button>
-  <button class="tbtn primary" id="btnPrint">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V3h12v6M6 18H4a2 2 0 01-2-2v-3a2 2 0 012-2h16a2 2 0 012 2v3a2 2 0 01-2 2h-2M6 14h12v7H6z"/></svg>Imprimer / PDF
+  <button class="tbtn primary icon" id="btnPrint" title="Imprimer / exporter en PDF">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V3h12v6M6 18H4a2 2 0 01-2-2v-3a2 2 0 012-2h16a2 2 0 012 2v3a2 2 0 01-2 2h-2M6 14h12v7H6z"/></svg>
   </button>
 </header>
 
@@ -293,14 +298,18 @@
         <h2 style="margin:0">Structure</h2>
         <button class="minibtn" id="btnCollapseAll" style="padding:4px 8px;font-size:11.5px">Tout réduire</button>
       </div>
-      <div style="display:flex;gap:8px">
-        <button class="minibtn brand" style="flex:1;justify-content:center" id="btnAddJalon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v16"/><path d="M4 5h13l-2.5 3L17 11H4"/></svg>
-          Nouveau jalon
-        </button>
-        <button class="minibtn" style="flex:1;justify-content:center" id="btnAddSection">
+      <div style="display:flex;gap:6px">
+        <button class="minibtn brand" style="flex:1;justify-content:center;padding:7px 6px" id="btnAddJalon" title="Ajouter un jalon (chapitre)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
-          Nouvelle section
+          Jalon
+        </button>
+        <button class="minibtn" style="flex:1;justify-content:center;padding:7px 6px" id="btnAddSection" title="Ajouter une section">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V4M5 4h11l-2 3 2 3H5"/></svg>
+          Section
+        </button>
+        <button class="minibtn" style="flex:1;justify-content:center;padding:7px 6px" id="btnAddSub" title="Ajouter une sous-section">
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="4"/></svg>
+          Sous-sect.
         </button>
       </div>
       <div id="sectionsList" style="margin-top:12px"></div>
@@ -376,10 +385,15 @@ function readAsDataURL(file){
 }
 function markDirty(){ dirty = true; document.body.classList.add("dirty"); }
 
-/* ---- helpers (liste à plat : jalons + sections) ---- */
+/* ---- helpers (liste à plat : jalons + sections + sous-sections) ---- */
 const newJalon = ()=>({ id:uid(), type:"jalon", title:"" });
 const newSection = ()=>({ id:uid(), type:"section", name:"", images:[] });
-function countImages(item){ return item.type==="section" ? item.images.length : 0; }
+const newSous = ()=>({ id:uid(), type:"soussection", name:"", images:[] });
+function folderIcon(){ return icon('<path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>'); }
+function flagIcon(){ return icon('<path d="M5 21V4M5 4h11l-2 3 2 3H5"/>'); }
+function dotIcon(){ return `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="4"/></svg>`; }
+function iconSpan(svg){ return h("span","tp-ic",{innerHTML:svg}); }
+function countImages(item){ return item.type==="jalon" ? 0 : item.images.length; }
 function letterFor(n){ let s=""; while(n>0){ n--; s=String.fromCharCode(65+(n%26))+s; n=Math.floor(n/26); } return s; }
 function orderedSections(){ return state.items.filter(i=>i.type==="section"); }
 function sectionIds(){ return orderedSections().map(s=>s.id); }
@@ -396,21 +410,24 @@ function renderSections(){
     list.append(h("div","empty-note",{textContent:"Rien pour l'instant. Ajoute un jalon (chapitre) ou une section."}));
     return;
   }
-  let jc=0, sc=0;
-  let container = list;                 // conteneur courant où vont les sections
+  let jc=0, sc=0, ssc=0, curSec="";
+  let container = list;                 // conteneur courant où vont sections/sous-sections
   state.items.forEach(item=>{
     if(item.type==="jalon"){
-      jc++; sc=0;
+      jc++; sc=0; ssc=0; curSec="";
       const group = h("div","jalon-group");
       if(collapsedNodes.has(item.id)) group.classList.add("collapsed");
-      group.append(renderJalon(item, jc, group));
+      group.append(renderJalon(item, String(jc), group));
       const secWrap = h("div","jalon-sections");
       group.append(secWrap);
       list.append(group);
-      container = secWrap;              // les sections suivantes tombent dans ce jalon
-    } else {
-      sc++;
-      container.append(renderSectionCard(item, jc>0 ? `${jc}.${sc}` : `${sc}`));
+      container = secWrap;
+    } else if(item.type==="section"){
+      sc++; ssc=0; const num = jc>0 ? `${jc}.${sc}` : `${sc}`; curSec = num;
+      container.append(renderLeafCard(item, num, "section"));
+    } else { // soussection
+      ssc++; const num = curSec ? `${curSec}.${ssc}` : `${ssc}`;
+      container.append(renderLeafCard(item, num, "soussection"));
     }
   });
 }
@@ -423,17 +440,18 @@ function makeGrip(row, item, extraCls){
 }
 function deleteBtn(item){
   const isJalon = item.type==="jalon";
+  const isSous = item.type==="soussection";
   const del = h("button","iconbtn danger",{
     innerHTML: isJalon ? icon('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>') : icon('<path d="M6 6l12 12M18 6L6 18"/>'),
-    title: isJalon ? "Supprimer le jalon" : "Supprimer la section"
+    title: isJalon ? "Supprimer le jalon" : (isSous ? "Supprimer la sous-section" : "Supprimer la section")
   });
   del.onclick = ()=>{
     const idx = state.items.findIndex(i=>i.id===item.id); if(idx<0) return;
     if(item.type==="jalon"){
       if(confirm(`Supprimer le jalon « ${item.title||"(sans titre)"} » ? (les sections en dessous sont conservées)`)){ state.items.splice(idx,1); changed(); }
     }else{
-      const n = item.images.length;
-      if(confirm(`Supprimer la section « ${item.name||"(sans titre)"} »${n?` et ses ${n} page(s)`:""} ?`)){ state.items.splice(idx,1); changed(); }
+      const n = item.images.length; const what = isSous ? "la sous-section" : "la section";
+      if(confirm(`Supprimer ${what} « ${item.name||"(sans titre)"} »${n?` et ses ${n} page(s)`:""} ?`)){ state.items.splice(idx,1); changed(); }
     }
   };
   return del;
@@ -445,6 +463,7 @@ function renderJalon(item, num, group){
   const caret = h("button","iconbtn sec-caret jalon-caret",{innerHTML:icon('<path d="M6 9l6 6 6-6"/>'), title:"Réduire / déplier le jalon"});
   caret.onclick = ()=>{ collapsedNodes.has(item.id)?collapsedNodes.delete(item.id):collapsedNodes.add(item.id); group.classList.toggle("collapsed"); };
   row.append(caret);
+  row.append(iconSpan(folderIcon()));
   row.append(h("span","jalon-num",{textContent:num}));
   const title = h("input","jalon-title",{value:item.title, type:"text", placeholder:"Titre du chapitre (jalon)"});
   title.addEventListener("input", ()=>{ item.title = title.value; markDirty(); renderDocument(); });
@@ -453,8 +472,8 @@ function renderJalon(item, num, group){
   return row;
 }
 
-function renderSectionCard(sec, letter){
-  const card = h("div","node-card section sec-card drag-item"); card.dataset.id = sec.id;
+function renderLeafCard(sec, number, kind){
+  const card = h("div","node-card "+kind+" sec-card drag-item"); card.dataset.id = sec.id;
   if(collapsedNodes.has(sec.id)) card.classList.add("collapsed");
 
   const top = h("div","sec-top");
@@ -462,8 +481,9 @@ function renderSectionCard(sec, letter){
   const caret = h("button","iconbtn sec-caret",{innerHTML:icon('<path d="M6 9l6 6 6-6"/>'), title:"Réduire / déplier"});
   caret.onclick = ()=>{ collapsedNodes.has(sec.id)?collapsedNodes.delete(sec.id):collapsedNodes.add(sec.id); card.classList.toggle("collapsed"); };
   top.append(caret);
-  top.append(h("span","node-num letter",{textContent:letter}));
-  const name = h("input","sec-name",{value:sec.name, type:"text", placeholder:"Titre de la section"});
+  top.append(iconSpan(kind==="soussection" ? dotIcon() : flagIcon()));
+  top.append(h("span","node-num",{textContent:number}));
+  const name = h("input","sec-name",{value:sec.name, type:"text", placeholder: kind==="soussection" ? "Titre de la sous-section" : "Titre de la section"});
   name.addEventListener("input", ()=>{ sec.name = name.value; markDirty(); renderDocument(); });
   top.append(name);
   top.append(h("span","sec-count",{textContent:`${sec.images.length} p.`}));
@@ -707,17 +727,20 @@ function buildDividerPage(p){            // intercalaire de chapitre (ni logo ni
 // Construit en un seul parcours : entrées du sommaire + liste ordonnée des pages.
 // Un jalon => une page intercalaire ; une section => une page par image. offset = index de la 1re page.
 function buildDocModel(){
-  const toc=[], pages=[]; let jc=0, sc=0;
+  const toc=[], pages=[]; let jc=0, sc=0, ssc=0, curSec="";
   state.items.forEach(item=>{
     if(item.type==="jalon"){
-      jc++; sc=0; const num=String(jc);
+      jc++; sc=0; ssc=0; curSec=""; const num=String(jc);
       const offset=pages.length;
       pages.push({type:"divider", number:num, title:item.title});
       toc.push({depth:0, kind:"chapter", number:num, title:item.title, offset, page:0});
-    }else{
-      sc++; const num = jc>0 ? `${jc}.${sc}` : `${sc}`;
-      const depth = jc>0 ? 1 : 0;   // sections sous un jalon : indentées au sommaire
-      toc.push({depth, kind:"section", number:num, title:item.name, offset:pages.length, page:0});
+    }else if(item.type==="section"){
+      sc++; ssc=0; const num = jc>0 ? `${jc}.${sc}` : `${sc}`; curSec = num;
+      toc.push({depth:1, kind:"section", number:num, title:item.name, offset:pages.length, page:0});
+      item.images.forEach((img,ii)=> pages.push({type:"image", src:img.src, secNum:num, secTitle:item.name, first: ii===0}));
+    }else{ // soussection
+      ssc++; const num = curSec ? `${curSec}.${ssc}` : `${ssc}`;
+      toc.push({depth:2, kind:"section", number:num, title:item.name, offset:pages.length, page:0});
       item.images.forEach((img,ii)=> pages.push({type:"image", src:img.src, secNum:num, secTitle:item.name, first: ii===0}));
     }
   });
@@ -794,7 +817,12 @@ function normSection(n){
 }
 function toItems(obj){
   if(Array.isArray(obj.items)){
-    return obj.items.map(n=> n && n.type==="jalon" ? {id:n.id||uid(), type:"jalon", title:n.title??""} : normSection(n)).filter(Boolean);
+    return obj.items.map(n=>{
+      if(!n) return null;
+      if(n.type==="jalon") return {id:n.id||uid(), type:"jalon", title:n.title??""};
+      if(n.type==="soussection"){ const s=normSection(n); s.type="soussection"; return s; }
+      return normSection(n);
+    }).filter(Boolean);
   }
   if(Array.isArray(obj.tree)){                 // ancien format arbre -> aplati (chapitres/sous-chapitres deviennent des jalons)
     const out=[];
@@ -845,13 +873,14 @@ $("#inLogo").addEventListener("change", async e=>{ if(e.target.files[0]){ state.
 $("#inPhoto").addEventListener("change", async e=>{ if(e.target.files[0]){ state.photo=await readAsDataURL(e.target.files[0]); markDirty(); renderDocument(); } e.target.value=""; });
 $("#inSecImgs").addEventListener("change", async e=>{
   const sec = findItem(activeSecForImport);
-  if(sec && sec.type==="section" && e.target.files.length) await addFilesToSection(sec, e.target.files);
+  if(sec && (sec.type==="section"||sec.type==="soussection") && e.target.files.length) await addFilesToSection(sec, e.target.files);
   activeSecForImport=null; e.target.value="";
 });
 $("#inJson").addEventListener("change", e=>{ if(e.target.files[0]) loadJSON(e.target.files[0]); e.target.value=""; });
 
 $("#btnAddJalon").addEventListener("click", ()=>{ state.items.push(newJalon()); changed(); });
 $("#btnAddSection").addEventListener("click", ()=>{ state.items.push(newSection()); changed(); });
+$("#btnAddSub").addEventListener("click", ()=>{ state.items.push(newSous()); changed(); });
 $("#btnCollapseAll").addEventListener("click", ()=>{
   const ids = state.items.filter(i=>i.type==="jalon").map(i=>i.id);
   const allCollapsed = ids.length>0 && ids.every(id=>collapsedNodes.has(id));
@@ -861,7 +890,6 @@ $("#btnCollapseAll").addEventListener("click", ()=>{
 });
 $("#btnSave").addEventListener("click", saveJSON);
 $("#btnLoad").addEventListener("click", ()=> $("#inJson").click());
-$("#btnNew").addEventListener("click", newDOE);
 $("#btnPrint").addEventListener("click", ()=>{ if(zoom!==null){ zoom=null; } applyZoom(); setTimeout(()=>window.print(),60); });
 
 $("#zoomIn").onclick = ()=>{ zoom = Math.min(1.6, (zoom??currentAutoScale())+0.1); applyZoom(); };

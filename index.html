@@ -122,6 +122,9 @@
   .jalon-title:focus{outline:none;background:rgba(255,255,255,.15)}
   .jalon .iconbtn{color:#fff}
   .jalon .iconbtn:hover{background:rgba(255,255,255,.2)}
+  .jalon-group.collapsed>.jalon-sections{display:none}
+  .jalon-caret{transition:transform .15s}
+  .jalon-group.collapsed .jalon-caret{transform:rotate(-90deg)}
 
   /* poignée + marqueurs de dépôt */
   .grip{cursor:grab;flex:0 0 auto;display:grid;place-items:center;padding:2px;opacity:.85}
@@ -213,8 +216,7 @@
   [contenteditable].ph:empty:before{content:attr(data-ph);color:#b3bcc8}
 
   /* sommaire */
-  .page-sommaire .som-title{font-size:16pt;font-weight:700;color:var(--brand);text-align:center;text-decoration:underline;text-underline-offset:3px}
-  .page-sommaire .som-sub{font-size:12pt;color:var(--brand-2);margin:6mm 0 4mm}
+  .page-sommaire .som-title{font-size:16pt;font-weight:700;color:var(--brand);text-align:center;text-decoration:underline;text-underline-offset:3px;margin-bottom:8mm}
   .toc-list{flex:1;overflow:hidden;display:flex;flex-direction:column;gap:2.2mm;padding-top:1mm}
   .toc-row{display:flex;align-items:baseline;gap:2mm;font-size:11pt}
   .toc-row.chap{font-weight:700}
@@ -395,9 +397,21 @@ function renderSections(){
     return;
   }
   let jc=0, sc=0;
+  let container = list;                 // conteneur courant où vont les sections
   state.items.forEach(item=>{
-    if(item.type==="jalon"){ jc++; sc=0; list.append(renderJalon(item, jc)); }
-    else { sc++; list.append(renderSectionCard(item, jc>0 ? `${jc}.${sc}` : `${sc}`)); }
+    if(item.type==="jalon"){
+      jc++; sc=0;
+      const group = h("div","jalon-group");
+      if(collapsedNodes.has(item.id)) group.classList.add("collapsed");
+      group.append(renderJalon(item, jc, group));
+      const secWrap = h("div","jalon-sections");
+      group.append(secWrap);
+      list.append(group);
+      container = secWrap;              // les sections suivantes tombent dans ce jalon
+    } else {
+      sc++;
+      container.append(renderSectionCard(item, jc>0 ? `${jc}.${sc}` : `${sc}`));
+    }
   });
 }
 
@@ -425,9 +439,12 @@ function deleteBtn(item){
   return del;
 }
 
-function renderJalon(item, num){
+function renderJalon(item, num, group){
   const row = h("div","jalon drag-item"); row.dataset.id = item.id;
   row.append(makeGrip(row, item));
+  const caret = h("button","iconbtn sec-caret jalon-caret",{innerHTML:icon('<path d="M6 9l6 6 6-6"/>'), title:"Réduire / déplier le jalon"});
+  caret.onclick = ()=>{ collapsedNodes.has(item.id)?collapsedNodes.delete(item.id):collapsedNodes.add(item.id); group.classList.toggle("collapsed"); };
+  row.append(caret);
   row.append(h("span","jalon-num",{textContent:num}));
   const title = h("input","jalon-title",{value:item.title, type:"text", placeholder:"Titre du chapitre (jalon)"});
   title.addEventListener("input", ()=>{ item.title = title.value; markDirty(); renderDocument(); });
@@ -628,10 +645,7 @@ function buildSommaire(entries){
   function makePage(){
     const page = pageEl("page-sommaire");
     const c = h("div","page-content");
-    if(pages.length===0){
-      c.append(h("div","som-title",{textContent:"SOMMAIRE"}));
-    }
-    c.append(h("div","som-sub",{textContent: pages.length===0 ? "Table des matières" : "Table des matières (suite)"}));
+    c.append(h("div","som-title",{textContent: pages.length===0 ? "SOMMAIRE" : "SOMMAIRE (suite)"}));
     const listEl = h("div","toc-list");
     c.append(listEl);
     page.append(c);
@@ -839,9 +853,9 @@ $("#inJson").addEventListener("change", e=>{ if(e.target.files[0]) loadJSON(e.ta
 $("#btnAddJalon").addEventListener("click", ()=>{ state.items.push(newJalon()); changed(); });
 $("#btnAddSection").addEventListener("click", ()=>{ state.items.push(newSection()); changed(); });
 $("#btnCollapseAll").addEventListener("click", ()=>{
-  const ids = sectionIds();
+  const ids = state.items.filter(i=>i.type==="jalon").map(i=>i.id);
   const allCollapsed = ids.length>0 && ids.every(id=>collapsedNodes.has(id));
-  if(allCollapsed){ collapsedNodes.clear(); $("#btnCollapseAll").textContent="Tout réduire"; }
+  if(allCollapsed){ ids.forEach(id=>collapsedNodes.delete(id)); $("#btnCollapseAll").textContent="Tout réduire"; }
   else{ ids.forEach(id=>collapsedNodes.add(id)); $("#btnCollapseAll").textContent="Tout déplier"; }
   renderSections();
 });

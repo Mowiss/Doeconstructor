@@ -56,6 +56,8 @@
   .tbtn svg{width:15px;height:15px}
   .tbtn.icon{padding:8px;gap:0}
   .tbtn.icon svg{width:20px;height:20px}
+  .tbtn[disabled]{opacity:.35;cursor:default;pointer-events:none}
+  .tbar-sep{width:1px;height:22px;background:rgba(255,255,255,.3);margin:0 4px}
   .dirty-dot{width:8px;height:8px;border-radius:50%;background:#ffd24a;display:none}
   .dirty .dirty-dot{display:inline-block}
 
@@ -231,6 +233,9 @@
   .page-sommaire .som-title{font-size:16pt;font-weight:700;color:var(--brand);text-align:center;text-decoration:underline;text-underline-offset:3px;margin-bottom:8mm}
   .toc-list{flex:1;overflow:hidden;display:flex;flex-direction:column;gap:2.2mm;padding-top:1mm}
   .toc-row{display:flex;align-items:baseline;gap:2mm;font-size:11pt}
+  a.toc-row{text-decoration:none;color:inherit}
+  a.toc-row:hover .toc-name{color:var(--brand-2);text-decoration:underline}
+  .jalon-num,.node-num,.sec-top .tp-ic,.jalon .tp-ic{cursor:pointer}
   .toc-row.chap{font-weight:700}
   .toc-row.chap.lvl0{font-size:11.5pt}
   .toc-row.sect{font-size:10.5pt}
@@ -285,6 +290,16 @@
   <div class="brand"><span class="mark">🗃️</span> <span>DOEConstructor</span></div>
   <span class="dirty-dot" title="Modifications non enregistrées"></span>
   <div class="spacer"></div>
+  <button class="tbtn icon" id="btnUndo" title="Annuler (Ctrl+Z)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14l-5-5 5-5"/><path d="M4 9h11a5 5 0 015 5v1a5 5 0 01-5 5H7"/></svg>
+  </button>
+  <button class="tbtn icon" id="btnRedo" title="Rétablir (Ctrl+Y)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 00-5 5v1a5 5 0 005 5h8"/></svg>
+  </button>
+  <button class="tbtn icon" id="btnSommaire" title="Aller au sommaire">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+  </button>
+  <span class="tbar-sep"></span>
   <button class="tbtn icon" id="btnLoad" title="Ouvrir un fichier JSON">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
   </button>
@@ -391,6 +406,67 @@ function readAsDataURL(file){
 }
 function markDirty(){ dirty = true; document.body.classList.add("dirty"); }
 
+/* ============ Historique (annuler / rétablir) ============ */
+// Les snapshots partagent les objets image (jamais mutés) -> pas de duplication des données base64.
+let history=[], hIndex=-1, lastSig=null, lastLogo=null, lastPhoto=null;
+function cloneState(s){
+  return {
+    meta:{title:s.meta.title, subtitle:s.meta.subtitle, footer:s.meta.footer},
+    logo:s.logo, photo:s.photo,
+    items: s.items.map(it => it.type==="jalon"
+      ? {id:it.id, type:"jalon", title:it.title}
+      : {id:it.id, type:it.type, name:it.name, images: it.images.slice()})
+  };
+}
+function histSig(s){
+  return s.items.map(it => it.type==="jalon"
+    ? "J|"+it.id+"|"+it.title
+    : it.type[0]+"|"+it.id+"|"+it.name+"|"+it.images.map(im=>im.id).join(",")
+  ).join("¶") + "§" + s.meta.title + "§" + s.meta.subtitle + "§" + s.meta.footer;
+}
+function recordHistory(){
+  const sig = histSig(state);
+  if(sig===lastSig && state.logo===lastLogo && state.photo===lastPhoto) return;  // rien de neuf
+  history = history.slice(0, hIndex+1);
+  history.push(cloneState(state));
+  if(history.length>60) history.shift();
+  hIndex = history.length-1;
+  lastSig=sig; lastLogo=state.logo; lastPhoto=state.photo;
+  updateUndoUI();
+}
+function initHistory(){
+  history=[cloneState(state)]; hIndex=0;
+  lastSig=histSig(state); lastLogo=state.logo; lastPhoto=state.photo;
+  updateUndoUI();
+}
+function restoreFrom(entry){
+  state = cloneState(entry);
+  lastSig=histSig(state); lastLogo=state.logo; lastPhoto=state.photo;
+  markDirty(); renderSections(); renderDocument(); updateUndoUI();
+}
+function undo(){ if(hIndex<=0) return; hIndex--; restoreFrom(history[hIndex]); }
+function redo(){ if(hIndex>=history.length-1) return; hIndex++; restoreFrom(history[hIndex]); }
+function updateUndoUI(){
+  const u=$("#btnUndo"), r=$("#btnRedo");
+  if(u) u.disabled = hIndex<=0;
+  if(r) r.disabled = hIndex>=history.length-1;
+}
+
+/* ============ Navigation de l'aperçu ============ */
+let itemPageMap = {};   // id d'élément -> index de sa 1re page dans #document
+function pagesList(){ return doc.querySelectorAll(".page"); }
+function scrollToPageIndex(i){
+  const ps = pagesList(); if(!ps.length) return;
+  ps[Math.max(0, Math.min(i, ps.length-1))].scrollIntoView({behavior:"smooth", block:"start"});
+}
+function scrollToItem(id){
+  if(id!=null && Object.prototype.hasOwnProperty.call(itemPageMap,id)) scrollToPageIndex(itemPageMap[id]);
+}
+function scrollToSommaire(){ const s=doc.querySelector(".page-sommaire"); if(s) s.scrollIntoView({behavior:"smooth", block:"start"}); }
+function wireRowNav(el, id){
+  el.addEventListener("click", e=>{ if(e.target.closest("input,button,.grip,a")) return; scrollToItem(id); });
+}
+
 /* ---- helpers (liste à plat : jalons + sections + sous-sections) ---- */
 const newJalon = ()=>({ id:uid(), type:"jalon", title:"" });
 const newSection = ()=>({ id:uid(), type:"section", name:"", images:[] });
@@ -484,8 +560,10 @@ function renderJalon(item, num, group){
   row.append(h("span","jalon-num",{textContent:num}));
   const title = h("input","jalon-title",{value:item.title, type:"text", placeholder:"Titre du chapitre (jalon)"});
   title.addEventListener("input", ()=>{ item.title = title.value; markDirty(); renderDocument(); });
+  title.addEventListener("change", recordHistory);
   row.append(title);
   row.append(deleteBtn(item));
+  wireRowNav(row, item.id);
   return row;
 }
 
@@ -503,9 +581,11 @@ function renderLeafCard(sec, number, kind, groupEl){
   top.append(h("span","node-num",{textContent:number}));
   const name = h("input","sec-name",{value:sec.name, type:"text", placeholder: kind==="soussection" ? "Titre de la sous-section" : "Titre de la section"});
   name.addEventListener("input", ()=>{ sec.name = name.value; markDirty(); renderDocument(); });
+  name.addEventListener("change", recordHistory);
   top.append(name);
   top.append(h("span","sec-count",{textContent:`${sec.images.length} p.`}));
   top.append(deleteBtn(sec));
+  wireRowNav(top, sec.id);
   card.append(top);
 
   const body = h("div","sec-body");
@@ -575,7 +655,7 @@ function setupListDnD(){
   c.addEventListener("dragend", ()=>{ dragId=null; clearMarks(); c.querySelectorAll(".dragging").forEach(el=>el.classList.remove("dragging")); });
 }
 
-function changed(){ markDirty(); renderSections(); renderDocument(); }
+function changed(){ markDirty(); renderSections(); renderDocument(); recordHistory(); }
 
 /* ============ Import images / PDF ============ */
 function showBusy(msg){ $("#busyMsg").textContent = msg || "Traitement…"; $("#busy").style.display="grid"; }
@@ -655,10 +735,12 @@ function buildCover(){
   const title = h("div","cov-title ph"); title.contentEditable="true"; title.dataset.ph="Titre du dossier";
   title.textContent = state.meta.title;
   title.addEventListener("input", ()=>{ state.meta.title = title.textContent.trim(); markDirty(); });
+  title.addEventListener("blur", recordHistory);
 
   const sub = h("div","cov-sub ph"); sub.contentEditable="true"; sub.dataset.ph="Sous-titre";
   sub.textContent = state.meta.subtitle;
   sub.addEventListener("input", ()=>{ state.meta.subtitle = sub.textContent.trim(); markDirty(); });
+  sub.addEventListener("blur", recordHistory);
 
   const photoZone = h("div","cov-photo-zone"+(state.photo?" has":""));
   photoZone.innerHTML = state.photo ? `<img src="${state.photo}">` : "Cliquer pour importer la photo de couverture";
@@ -668,6 +750,7 @@ function buildCover(){
   const footer = h("div","cov-footer ph"); footer.contentEditable="true"; footer.dataset.ph="Pied de page";
   footer.innerHTML = escapeHtml(state.meta.footer).replace(/\n/g,"<br>");
   footer.addEventListener("input", ()=>{ state.meta.footer = footer.innerText.trim(); markDirty(); });
+  footer.addEventListener("blur", recordHistory);
 
   c.append(logoZone, title, sub, photoZone, footer);
   page.append(c);
@@ -698,13 +781,15 @@ function buildSommaire(entries){
     return pages;
   }
   entries.forEach(en=>{
-    const row = h("div","toc-row "+(en.kind==="chapter"?"chap":"sect")+" lvl"+en.depth);
+    const row = h("a","toc-row "+(en.kind==="chapter"?"chap":"sect")+" lvl"+en.depth);
+    row.href = en.itemId ? "#doe-"+en.itemId : "#";
     row.style.paddingLeft = (en.depth*7)+"mm";
     row.innerHTML =
       `<span class="toc-idx">${en.number}</span>`+
       `<span class="toc-name">${escapeHtml(en.title||"(sans titre)")}</span>`+
       `<span class="toc-leader"></span>`+
       `<span class="toc-page">${en.page}</span>`;
+    row.addEventListener("click", e=>{ e.preventDefault(); if(en.itemId) scrollToItem(en.itemId); });
     cur.listEl.append(row);
     if(cur.listEl.scrollHeight > cur.listEl.clientHeight + 1){
       if(cur.listEl.children.length > 1){
@@ -719,6 +804,7 @@ function buildSommaire(entries){
 
 function buildImagePage(p, pageNumber){
   const page = pageEl("page-content-img");
+  if(p.itemId) page.id = "doe-"+p.itemId;
   addLogoAndNum(page, pageNumber);
   if(p.first){                          // 1re page : bandeau haut-gauche
     const head = h("div","sec-head");
@@ -739,6 +825,7 @@ function buildImagePage(p, pageNumber){
 
 function buildDividerPage(p){            // intercalaire de chapitre (ni logo ni numéro affiché)
   const page = pageEl("page-divider");
+  if(p.itemId) page.id = "doe-"+p.itemId;
   const c = h("div","page-content");
   const t = h("div","div-title");
   t.textContent = p.title ? `${p.number} - ${p.title}` : p.number;
@@ -755,16 +842,16 @@ function buildDocModel(){
     if(item.type==="jalon"){
       jc++; sc=0; ssc=0; curSecNum=""; curSecName=""; const num=String(jc);
       const offset=pages.length;
-      pages.push({type:"divider", number:num, title:item.title});
-      toc.push({depth:0, kind:"chapter", number:num, title:item.title, offset, page:0});
+      pages.push({type:"divider", number:num, title:item.title, itemId:item.id});
+      toc.push({depth:0, kind:"chapter", number:num, title:item.title, offset, page:0, itemId:item.id});
     }else if(item.type==="section"){
       sc++; ssc=0; const num = jc>0 ? `${jc}.${sc}` : `${sc}`; curSecNum = num; curSecName = item.name;
-      toc.push({depth:1, kind:"section", number:num, title:item.name, offset:pages.length, page:0});
-      item.images.forEach((img,ii)=> pages.push({type:"image", src:img.src, secNum:num, secTitle:item.name, first: ii===0}));
+      toc.push({depth:1, kind:"section", number:num, title:item.name, offset:pages.length, page:0, itemId:item.id});
+      item.images.forEach((img,ii)=> pages.push({type:"image", src:img.src, secNum:num, secTitle:item.name, first: ii===0, itemId: ii===0 ? item.id : null}));
     }else{ // soussection
       ssc++; const num = curSecNum ? `${curSecNum}.${ssc}` : `${ssc}`;
-      toc.push({depth:2, kind:"section", number:num, title:item.name, offset:pages.length, page:0});
-      item.images.forEach((img,ii)=> pages.push({type:"image", src:img.src, secNum:num, secTitle:item.name, first: ii===0, parent:{num:curSecNum, title:curSecName}}));
+      toc.push({depth:2, kind:"section", number:num, title:item.name, offset:pages.length, page:0, itemId:item.id});
+      item.images.forEach((img,ii)=> pages.push({type:"image", src:img.src, secNum:num, secTitle:item.name, first: ii===0, itemId: ii===0 ? item.id : null, parent:{num:curSecNum, title:curSecName}}));
     }
   });
   return {toc, pages};
@@ -787,6 +874,12 @@ function renderDocument(){
   const contentStart = 1 + S + 1;
   toc.forEach(en=>{ en.page = contentStart + en.offset; });
   doc.querySelectorAll(".toc-row .toc-page").forEach((el,i)=>{ if(toc[i]) el.textContent = toc[i].page; });
+
+  // carte id d'élément -> index DOM de sa 1re page (cover=0, sommaire=1..S, contenu=1+S..)
+  itemPageMap = {};
+  const domBase = 1 + S;
+  toc.forEach(en=>{ if(en.itemId!=null) itemPageMap[en.itemId] = domBase + en.offset; });
+  if(somPages[0]) somPages[0].page.id = "doe-sommaire";
 
   // 5) Pages de contenu
   pages.forEach((p,idx)=>{
@@ -877,6 +970,7 @@ function loadJSON(file){
       collapsedNodes.clear();
       state.items.forEach(i=>collapsedNodes.add(i.id));   // tout replié par défaut
       renderAll();
+      initHistory();
       dirty = false; document.body.classList.remove("dirty");
     }catch(e){
       alert("Fichier illisible. Sélectionne un JSON exporté par cet outil.");
@@ -893,8 +987,8 @@ function newDOE(){
 function renderAll(){ renderSections(); renderDocument(); }
 
 /* ============ Câblage UI ============ */
-$("#inLogo").addEventListener("change", async e=>{ if(e.target.files[0]){ state.logo=await readAsDataURL(e.target.files[0]); markDirty(); renderDocument(); } e.target.value=""; });
-$("#inPhoto").addEventListener("change", async e=>{ if(e.target.files[0]){ state.photo=await readAsDataURL(e.target.files[0]); markDirty(); renderDocument(); } e.target.value=""; });
+$("#inLogo").addEventListener("change", async e=>{ if(e.target.files[0]){ state.logo=await readAsDataURL(e.target.files[0]); markDirty(); renderDocument(); recordHistory(); } e.target.value=""; });
+$("#inPhoto").addEventListener("change", async e=>{ if(e.target.files[0]){ state.photo=await readAsDataURL(e.target.files[0]); markDirty(); renderDocument(); recordHistory(); } e.target.value=""; });
 $("#inSecImgs").addEventListener("change", async e=>{
   const sec = findItem(activeSecForImport);
   if(sec && (sec.type==="section"||sec.type==="soussection") && e.target.files.length) await addFilesToSection(sec, e.target.files);
@@ -915,6 +1009,17 @@ $("#btnCollapseAll").addEventListener("click", ()=>{
 $("#btnSave").addEventListener("click", saveJSON);
 $("#btnLoad").addEventListener("click", ()=> $("#inJson").click());
 $("#btnPrint").addEventListener("click", ()=>{ if(zoom!==null){ zoom=null; } applyZoom(); setTimeout(()=>window.print(),60); });
+$("#btnUndo").addEventListener("click", undo);
+$("#btnRedo").addEventListener("click", redo);
+$("#btnSommaire").addEventListener("click", scrollToSommaire);
+
+document.addEventListener("keydown", e=>{
+  if(!(e.ctrlKey||e.metaKey)) return;
+  const t=e.target, editing = t && (t.tagName==="INPUT"||t.tagName==="TEXTAREA"||t.isContentEditable);
+  const k=(e.key||"").toLowerCase();
+  if(k==="z" && !e.shiftKey){ if(editing) return; e.preventDefault(); undo(); }
+  else if((k==="z" && e.shiftKey) || k==="y"){ if(editing) return; e.preventDefault(); redo(); }
+});
 
 $("#zoomIn").onclick = ()=>{ zoom = Math.min(1.6, (zoom??currentAutoScale())+0.1); applyZoom(); };
 $("#zoomOut").onclick = ()=>{ zoom = Math.max(0.25, (zoom??currentAutoScale())-0.1); applyZoom(); };
@@ -929,6 +1034,7 @@ window.addEventListener("beforeunload", e=>{ if(dirty){ e.preventDefault(); e.re
 /* ============ Démarrage ============ */
 setupListDnD();
 renderAll();
+initHistory();
 </script>
 </body>
 </html>

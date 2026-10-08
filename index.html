@@ -1428,20 +1428,41 @@ async function installApp(){
   else
     alert("L'installation n'est pas proposée pour l'instant par ce navigateur.\n\nDans Chrome ou Edge : menu ⋮ → « Installer DOEConstructor » (ou icône d'installation dans la barre d'adresse).");
 }
-function appIcon(size){
+/* Icône de l'appli = emoji 🗃️ (même que le favicon), rendu sur canvas.
+   bg : null = fond transparent ; sinon couleur de fond (icône "maskable" / Apple). ratio = taille de l'emoji. */
+const APP_EMOJI = "\u{1F5C3}️";
+const EMOJI_FONT = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji","Twemoji Mozilla","EmojiOne Color",sans-serif';
+function appIcon(size, bg, ratio){
+  const c=document.createElement("canvas"); c.width=c.height=size;
+  const x=c.getContext("2d");
+  if(bg){ x.fillStyle=bg; x.fillRect(0,0,size,size); }
+  const fs=Math.round(size*(ratio||0.86));
+  x.font=`${fs}px ${EMOJI_FONT}`; x.textAlign="center"; x.textBaseline="middle";
+  const m=x.measureText(APP_EMOJI);
+  // centrage vertical précis à partir de la boîte réelle du glyphe
+  const asc=m.actualBoundingBoxAscent||fs*0.5, desc=m.actualBoundingBoxDescent||fs*0.5;
+  x.fillText(APP_EMOJI, size/2, size/2 + (asc-desc)/2);
+  if(emojiRendered(x, size, bg)) return c.toDataURL("image/png");
+  return fallbackIcon(size);   // système sans police emoji : icône dessinée
+}
+function emojiRendered(x, size, bg){
+  try{
+    const d=x.getImageData(0,0,size,size).data; let colored=0;
+    for(let i=0;i<d.length;i+=16){
+      const r=d[i],g=d[i+1],b=d[i+2],a=d[i+3];
+      if(a>40 && (Math.max(r,g,b)-Math.min(r,g,b))>40) colored++;
+    }
+    return colored > (size*size/4)*0.04;   // assez de pixels colorés = vrai emoji couleur
+  }catch(e){ return true; }
+}
+function fallbackIcon(size){
   const c=document.createElement("canvas"); c.width=c.height=size;
   const x=c.getContext("2d"), s=size/512;
   x.fillStyle="#123a6b"; x.beginPath();
   if(x.roundRect) x.roundRect(0,0,size,size,96*s); else x.rect(0,0,size,size); x.fill();
-  // meuble à tiroirs
-  x.fillStyle="#fff";
-  x.fillRect(136*s,92*s,240*s,300*s);
-  x.fillStyle="#123a6b";
-  [112,212,312].forEach(y=>{ x.fillRect(156*s,y*s,200*s,80*s); });
-  x.fillStyle="#fff";
-  [112,212,312].forEach(y=>{ x.fillRect(226*s,(y+34)*s,60*s,12*s); });
-  x.font=`700 ${64*s}px Arial, Helvetica, sans-serif`; x.textAlign="center"; x.fillStyle="#fff";
-  x.fillText("DOE", 256*s, 462*s);
+  x.fillStyle="#fff"; x.fillRect(136*s,92*s,240*s,300*s);
+  x.fillStyle="#123a6b"; [112,212,312].forEach(y=>x.fillRect(156*s,y*s,200*s,80*s));
+  x.fillStyle="#fff"; [112,212,312].forEach(y=>x.fillRect(226*s,(y+34)*s,60*s,12*s));
   return c.toDataURL("image/png");
 }
 function setupManifest(){
@@ -1449,18 +1470,20 @@ function setupManifest(){
   const base = location.href.split("#")[0].split("?")[0];
   const scope = base.slice(0, base.lastIndexOf("/")+1);
   const i192=appIcon(192), i512=appIcon(512);
+  const iMask=appIcon(512,"#ffffff",0.62);         // zone de sécurité des icônes adaptatives
+  const iApple=appIcon(180,"#ffffff",0.78);        // iOS n'aime pas la transparence
   const manifest = {
     name:"DOEConstructor", short_name:"DOE",
     description:"Composer des Dossiers d'Ouvrage Exécuté",
     id: base, start_url: base, scope,
     display:"standalone", background_color:"#e7eaef", theme_color:"#123a6b",
-    icons:[{src:i192,sizes:"192x192",type:"image/png"},{src:i512,sizes:"512x512",type:"image/png"},{src:i512,sizes:"512x512",type:"image/png",purpose:"maskable"}]
+    icons:[{src:i192,sizes:"192x192",type:"image/png"},{src:i512,sizes:"512x512",type:"image/png"},{src:iMask,sizes:"512x512",type:"image/png",purpose:"maskable"}]
   };
   const link=document.createElement("link"); link.rel="manifest";
   link.href=URL.createObjectURL(new Blob([JSON.stringify(manifest)],{type:"application/manifest+json"}));
   document.head.append(link);
   const theme=document.createElement("meta"); theme.name="theme-color"; theme.content="#123a6b"; document.head.append(theme);
-  const apple=document.createElement("link"); apple.rel="apple-touch-icon"; apple.href=i192; document.head.append(apple);
+  const apple=document.createElement("link"); apple.rel="apple-touch-icon"; apple.href=iApple; document.head.append(apple);
 }
 
 /* -- rendu du panneau -- */

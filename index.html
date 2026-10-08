@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DOE — Dossier d'Ouvrage Exécuté</title>
+<title>DOEConstructor</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%97%83%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <style>
   :root{
@@ -263,6 +263,40 @@
 
   .hidden-input{display:none}
 
+  /* bouton ⛯ + panneau réglages */
+  .tbtn.glyph{font-size:21px;line-height:20px;width:38px;height:38px;justify-content:center;padding:0}
+  .set-backdrop{position:fixed;inset:0;background:rgba(22,32,46,.35);z-index:40}
+  .set-panel{position:fixed;top:0;right:0;bottom:0;width:min(380px,100vw);background:#fff;z-index:41;
+    box-shadow:-8px 0 30px rgba(0,0,0,.18);overflow:auto;display:flex;flex-direction:column}
+  .set-panel[hidden],.set-backdrop[hidden],.set-panel [hidden]{display:none!important}
+  .set-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;background:var(--brand);color:#fff}
+  .set-head h2{margin:0;font-size:15px}
+  .set-head .iconbtn{color:#fff}
+  .set-head .iconbtn:hover{background:rgba(255,255,255,.2);color:#fff}
+  .set-block{padding:16px 18px;border-bottom:1px solid var(--line)}
+  .set-block h3{margin:0 0 10px;font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+  .set-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .set-folder{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--line);border-radius:8px;background:#f7f9fc}
+  .set-folder-ic{font-size:20px;line-height:1}
+  .set-folder-txt{min-width:0}
+  .set-strong{font-weight:700;font-size:13.5px;word-break:break-all}
+  .set-muted{font-size:12px;color:var(--muted)}
+  .set-ok{color:var(--ok)!important}
+  .set-warn{color:#a8620b!important}
+  .set-note{font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.45}
+  .set-switch{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
+  .set-switch input{width:16px;height:16px;accent-color:var(--brand)}
+  .set-panel select{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:#fff}
+  .set-panel .minibtn:disabled{opacity:.45;cursor:default}
+  .set-files{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto}
+  .set-files button{text-align:left;border:1px solid var(--line);background:#fff;border-radius:6px;padding:7px 10px;font:inherit;font-size:12.5px;cursor:pointer;display:flex;justify-content:space-between;gap:8px}
+  .set-files button:hover{border-color:var(--brand-2);background:#f5f8fc}
+  .set-files small{color:var(--muted);white-space:nowrap}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:#16202e;color:#fff;
+    padding:9px 16px;border-radius:20px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:60}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  @media(prefers-reduced-motion:reduce){.toast{transition:none}}
+
   .busy{position:fixed;inset:0;background:rgba(22,32,46,.45);display:grid;place-items:center;z-index:50}
   .busy-box{background:#fff;border-radius:10px;padding:20px 26px;display:flex;align-items:center;gap:14px;box-shadow:0 10px 40px rgba(0,0,0,.25);font-size:14px;color:var(--ink)}
   .spinner{width:22px;height:22px;border:3px solid #dfe5ec;border-top-color:var(--brand);border-radius:50%;animation:spin .8s linear infinite}
@@ -306,10 +340,80 @@
   <button class="tbtn icon" id="btnSave" title="Enregistrer en JSON">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21V9m0 12l-4-4m4 4l4-4M4 7V5a2 2 0 012-2h12a2 2 0 012 2v2"/></svg>
   </button>
-  <button class="tbtn primary icon" id="btnPrint" title="Imprimer / exporter en PDF">
+  <button class="tbtn primary icon" id="btnPrint" title="Exporter en PDF (sommaire cliquable)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V3h12v6M6 18H4a2 2 0 01-2-2v-3a2 2 0 012-2h16a2 2 0 012 2v3a2 2 0 01-2 2h-2M6 14h12v7H6z"/></svg>
   </button>
+  <span class="tbar-sep"></span>
+  <button class="tbtn icon glyph" id="btnSettings" title="Sauvegarde et installation" aria-haspopup="dialog">⛯</button>
 </header>
+
+<!-- ---------- Panneau réglages (⛯) ---------- -->
+<div class="set-backdrop" id="setBackdrop" hidden></div>
+<aside class="set-panel" id="setPanel" role="dialog" aria-modal="true" aria-labelledby="setTitle" hidden>
+  <div class="set-head">
+    <h2 id="setTitle">Sauvegarde et application</h2>
+    <button class="iconbtn" id="setClose" title="Fermer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+
+  <section class="set-block">
+    <h3>Dossier de sauvegarde</h3>
+    <div class="set-folder">
+      <span class="set-folder-ic">📁</span>
+      <div class="set-folder-txt">
+        <div id="setFolderName" class="set-strong">Aucun dossier défini</div>
+        <div id="setFolderState" class="set-muted">Les sauvegardes sont téléchargées dans tes Téléchargements.</div>
+      </div>
+    </div>
+    <div class="set-row">
+      <button class="minibtn brand" id="setPick">Choisir ou créer un dossier</button>
+      <button class="minibtn" id="setReauth" hidden>Réautoriser l'accès</button>
+      <button class="minibtn ghost-danger" id="setForget" hidden>Oublier</button>
+    </div>
+    <p class="set-note" id="setPickNote">Dans la fenêtre qui s'ouvre, le bouton « Nouveau dossier » permet de le créer.</p>
+  </section>
+
+  <section class="set-block">
+    <h3>Sauvegarde manuelle</h3>
+    <div class="set-row">
+      <button class="minibtn brand" id="setSaveNow">Enregistrer maintenant</button>
+      <span class="set-muted">Ctrl+S</span>
+    </div>
+    <p class="set-note">Fichier : <b id="setFileName">DOE.json</b> · <span id="setLastSave">pas encore enregistré</span></p>
+  </section>
+
+  <section class="set-block">
+    <h3>Sauvegarde automatique</h3>
+    <label class="set-switch">
+      <input type="checkbox" id="setAuto">
+      <span>Enregistrer automatiquement dans le dossier</span>
+    </label>
+    <div class="set-row">
+      <span class="set-muted">Toutes les</span>
+      <select id="setEvery">
+        <option value="1">1 minute</option>
+        <option value="2">2 minutes</option>
+        <option value="5">5 minutes</option>
+        <option value="10">10 minutes</option>
+      </select>
+    </div>
+    <p class="set-note" id="setAutoNote">Seules les modifications non enregistrées déclenchent une sauvegarde.</p>
+  </section>
+
+  <section class="set-block" id="setOpenBlock" hidden>
+    <h3>Ouvrir un DOE du dossier</h3>
+    <div id="setFiles" class="set-files"></div>
+  </section>
+
+  <section class="set-block">
+    <h3>Application</h3>
+    <div class="set-row">
+      <button class="minibtn brand" id="setInstall">Installer l'application</button>
+    </div>
+    <p class="set-note" id="setInstallNote"></p>
+  </section>
+</aside>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <div class="workspace">
   <!-- ---------- Panneau structure ---------- -->
@@ -359,6 +463,7 @@
 <div id="busy" class="busy" style="display:none"><div class="busy-box"><div class="spinner"></div><span id="busyMsg">Traitement…</span></div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
   if(window.pdfjsLib){ pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; }
 </script>
@@ -760,7 +865,8 @@ function escapeHtml(s){ return s.replace(/[&<>]/g, m=>({'&':'&amp;','<':'&lt;','
 
 function romanOrNum(i){ return i; }
 
-/* Construit les pages du sommaire en paginant selon la hauteur réelle */
+/* Construit les pages du sommaire (nombre de lignes fixe par page, commun à l'aperçu et au PDF) */
+const TOC_ROWS_PER_PAGE = 30;
 function buildSommaire(entries){
   const pages = [];
   function makePage(){
@@ -790,14 +896,9 @@ function buildSommaire(entries){
       `<span class="toc-leader"></span>`+
       `<span class="toc-page">${en.page}</span>`;
     row.addEventListener("click", e=>{ e.preventDefault(); if(en.itemId) scrollToItem(en.itemId); });
+    // pagination fixe (identique à l'export PDF)
+    if(cur.listEl.children.length >= TOC_ROWS_PER_PAGE) cur = makePage();
     cur.listEl.append(row);
-    if(cur.listEl.scrollHeight > cur.listEl.clientHeight + 1){
-      if(cur.listEl.children.length > 1){
-        cur.listEl.removeChild(row);
-        cur = makePage();
-        cur.listEl.append(row);
-      }
-    }
   });
   return pages;
 }
@@ -917,13 +1018,13 @@ function wireDrop(el, onFiles){
 }
 
 /* ============ Save / Load / Print / New ============ */
+function docBaseName(){ return (state.meta.title || "DOE").replace(/[^\w\-À-ÿ ]+/g,"").trim().replace(/\s+/g,"_") || "DOE"; }
+function serialize(){ return JSON.stringify(state, null, 0); }
 function saveJSON(){
-  const data = JSON.stringify(state, null, 0);
-  const blob = new Blob([data], {type:"application/json"});
+  const blob = new Blob([serialize()], {type:"application/json"});
   const a = h("a");
-  const name = (state.meta.title || "DOE").replace(/[^\w\-À-ÿ ]+/g,"").trim().replace(/\s+/g,"_") || "DOE";
   a.href = URL.createObjectURL(blob);
-  a.download = name + ".json";
+  a.download = docBaseName() + ".json";
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
   dirty = false; document.body.classList.remove("dirty");
@@ -986,6 +1087,199 @@ function newDOE(){
 }
 function renderAll(){ renderSections(); renderDocument(); }
 
+/* ============ Export PDF natif (liens de sommaire + signets) ============ */
+const BRAND=[18,58,107], GREY_NUM=[107,119,135], INK=[26,26,26];
+function pdfSafe(s){
+  return String(s||"")
+    .replace(/[–—]/g,"-").replace(/[‘’ʼ]/g,"'").replace(/[“”]/g,'"')
+    .replace(/…/g,"...").replace(/œ/g,"oe").replace(/Œ/g,"OE").replace(/ | /g," ")
+    .replace(/[^\x00-\xFF]/g,"");
+}
+function loadImg(src){
+  return new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=()=>rej(new Error("Image illisible")); im.src=src; });
+}
+async function imgInfo(src, cache){
+  if(cache.has(src)) return cache.get(src);
+  const im = await loadImg(src);
+  let data=src, fmt;
+  if(/^data:image\/png/i.test(src)) fmt="PNG";
+  else if(/^data:image\/jpe?g/i.test(src)) fmt="JPEG";
+  else{ // webp, gif… -> JPEG
+    const c=document.createElement("canvas"); c.width=im.naturalWidth; c.height=im.naturalHeight;
+    const x=c.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,c.width,c.height); x.drawImage(im,0,0);
+    data=c.toDataURL("image/jpeg",0.9); fmt="JPEG";
+  }
+  const info={data, fmt, w:im.naturalWidth||1, h:im.naturalHeight||1, alias:"img"+cache.size};
+  cache.set(src,info); return info;
+}
+async function coverCrop(src, boxW, boxH){   // équivalent object-fit:cover
+  const im = await loadImg(src);
+  const targetW = Math.min(2000, im.naturalWidth), targetH = Math.round(targetW*boxH/boxW);
+  const s = Math.max(targetW/im.naturalWidth, targetH/im.naturalHeight);
+  const dw = im.naturalWidth*s, dh = im.naturalHeight*s;
+  const c=document.createElement("canvas"); c.width=targetW; c.height=targetH;
+  const x=c.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,targetW,targetH);
+  x.drawImage(im,(targetW-dw)/2,(targetH-dh)/2,dw,dh);
+  return c.toDataURL("image/jpeg",0.9);
+}
+function addFit(pdf, info, bx, by, bw, bh, align){
+  const s=Math.min(bw/info.w, bh/info.h); const w=info.w*s, h=info.h*s;
+  const x = align==="right" ? bx+bw-w : bx+(bw-w)/2;
+  const y = align==="right" ? by : by+(bh-h)/2;
+  pdf.addImage(info.data, info.fmt, x, y, w, h, info.alias, "FAST");
+}
+function fitText(pdf, text, maxW){
+  if(pdf.getTextWidth(text) <= maxW) return text;
+  let t=text; while(t.length>1 && pdf.getTextWidth(t+"...")>maxW) t=t.slice(0,-1);
+  return t.trimEnd()+"...";
+}
+function underline(pdf, x, y, text, align){
+  const w=pdf.getTextWidth(text); const x0 = align==="center" ? x-w/2 : x;
+  pdf.setLineWidth(0.3); pdf.line(x0, y+0.9, x0+w, y+0.9);
+}
+const yieldUI = ()=> new Promise(r=>setTimeout(r,0));
+
+async function buildPdf(onProgress){
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({unit:"mm", format:"a4", compress:true});
+  const W=210, X0=18, X1=192, CW=X1-X0;
+  const cache = new Map();
+  const logo = state.logo ? await imgInfo(state.logo, cache) : null;
+
+  const {toc, pages} = buildDocModel();
+  const S = Math.max(1, Math.ceil(toc.length / TOC_ROWS_PER_PAGE));
+  const contentStart = 1 + S + 1;
+  toc.forEach(en=>{ en.page = contentStart + en.offset; });
+  const total = 1 + S + pages.length;
+
+  // ---- 1) Couverture
+  if(logo) addFit(pdf, logo, (W-70)/2, 22, 70, 34);
+  if(state.meta.title){
+    pdf.setDrawColor(...BRAND); pdf.setLineWidth(0.3);
+    pdf.line(X0, 82, X1, 82); pdf.line(X0, 104, X1, 104);
+    let fs=28; pdf.setFont("helvetica","normal"); pdf.setTextColor(34,34,34);
+    const t=pdfSafe(state.meta.title);
+    do{ pdf.setFontSize(fs); fs--; }while(pdf.getTextWidth(t)>CW && fs>12);
+    pdf.text(t, W/2, 96, {align:"center"});
+  }
+  if(state.meta.subtitle){
+    pdf.setFont("helvetica","normal"); pdf.setFontSize(13); pdf.setTextColor(51,51,51);
+    pdf.text(pdfSafe(state.meta.subtitle).toUpperCase(), W/2, 116, {align:"center", charSpace:0.6});
+  }
+  if(state.photo){
+    const data = await coverCrop(state.photo, CW, 120);
+    pdf.addImage(data, "JPEG", X0, 132, CW, 120, "cover-photo", "FAST");
+  }
+  if(state.meta.footer){
+    pdf.setFont("helvetica","normal"); pdf.setFontSize(9); pdf.setTextColor(102,102,102);
+    pdfSafe(state.meta.footer).split("\n").forEach((ln,i)=> pdf.text(ln.trim(), W/2, 268+i*4.5, {align:"center"}));
+  }
+
+  // ---- 2) Pages de sommaire (vides pour l'instant, remplies à la fin)
+  for(let k=0;k<S;k++) pdf.addPage();
+
+  // ---- 3) Contenu
+  for(let idx=0; idx<pages.length; idx++){
+    const p=pages[idx], num=contentStart+idx;
+    pdf.addPage();
+    if(p.type==="divider"){
+      pdf.setDrawColor(152,162,174); pdf.setLineWidth(0.3);
+      pdf.line(X0, 134, X1, 134); pdf.line(X0, 160, X1, 160);
+      pdf.setFont("helvetica","bolditalic"); pdf.setFontSize(15); pdf.setTextColor(...BRAND);
+      const t = pdfSafe(p.title ? `${p.number} - ${p.title}` : p.number);
+      pdf.text(fitText(pdf,t,CW-8), W/2, 149, {align:"center"});
+    }else{
+      if(logo) addFit(pdf, logo, X1-48, 9, 48, 16, "right");
+      pdf.setFont("helvetica","normal"); pdf.setFontSize(10); pdf.setTextColor(51,51,51);
+      pdf.text(String(num), X1, 289, {align:"right"});
+      if(p.first){
+        const mainNum = p.parent ? p.parent.num : p.secNum;
+        const mainTitle = p.parent ? p.parent.title : p.secTitle;
+        pdf.setTextColor(...INK); pdf.setDrawColor(...INK);
+        pdf.setFont("helvetica","bold"); pdf.setFontSize(11);
+        const t1 = fitText(pdf, pdfSafe(mainTitle ? `${mainNum} - ${mainTitle}` : mainNum), 118);
+        pdf.text(t1, X0, 15); underline(pdf, X0, 15, t1);
+        if(p.parent){
+          pdf.setFont("helvetica","italic"); pdf.setFontSize(10.5);
+          pdf.text(fitText(pdf, pdfSafe(p.secTitle ? `${p.secNum} - ${p.secTitle}` : p.secNum), 118), X0, 20.5);
+        }
+      }
+      const info = await imgInfo(p.src, cache);
+      addFit(pdf, info, X0, 26, CW, 283-26);
+    }
+    if(onProgress) onProgress(1+S+idx+1, total);
+    if(idx%4===0) await yieldUI();
+  }
+
+  // ---- 4) Remplissage du sommaire + liens internes
+  const rowH=7.6, y0=46;
+  for(let k=0;k<S;k++){
+    pdf.setPage(2+k);
+    pdf.setFont("helvetica","bold"); pdf.setFontSize(16); pdf.setTextColor(...BRAND); pdf.setDrawColor(...BRAND);
+    const ttl = k===0 ? "SOMMAIRE" : "SOMMAIRE (suite)";
+    pdf.text(ttl, W/2, 30, {align:"center"}); underline(pdf, W/2, 30, ttl, "center");
+    toc.slice(k*TOC_ROWS_PER_PAGE, (k+1)*TOC_ROWS_PER_PAGE).forEach((en,i)=>{
+      const y = y0 + i*rowH;
+      const x = X0 + en.depth*7;
+      const isChap = en.kind==="chapter";
+      const fs = isChap ? 11.5 : (en.depth===1 ? 10.5 : 10);
+      // numéro
+      pdf.setFont("helvetica","bold"); pdf.setFontSize(fs);
+      pdf.setTextColor(...(isChap ? BRAND : GREY_NUM));
+      const numTxt = String(en.number);
+      pdf.text(numTxt, x, y);
+      const nx = x + pdf.getTextWidth(numTxt) + 2;
+      // n° de page (droite)
+      pdf.setFont("helvetica", isChap ? "bold" : "normal"); pdf.setTextColor(34,34,34);
+      const pg = String(en.page); pdf.text(pg, X1, y, {align:"right"});
+      const pw = pdf.getTextWidth(pg);
+      // titre
+      pdf.setFont("helvetica", isChap ? "bold" : "normal"); pdf.setTextColor(...INK);
+      const title = fitText(pdf, pdfSafe(en.title || "(sans titre)"), (X1-pw-8) - nx);
+      pdf.text(title, nx, y);
+      // pointillés
+      const lx0 = nx + pdf.getTextWidth(title) + 2, lx1 = X1 - pw - 2;
+      if(lx1 > lx0){
+        pdf.setDrawColor(154,164,176); pdf.setLineWidth(0.25); pdf.setLineDashPattern([0.4,0.9],0);
+        pdf.line(lx0, y-0.6, lx1, y-0.6); pdf.setLineDashPattern([],0);
+      }
+      // zone cliquable -> page cible
+      pdf.link(X0, y-5, CW, rowH-0.4, {pageNumber: en.page});
+    });
+  }
+
+  // ---- 5) Signets (panneau latéral du lecteur PDF)
+  try{
+    const root = pdf.outline.add(null, "SOMMAIRE", {pageNumber:2});
+    let curChap=null, curSec=null;
+    toc.forEach(en=>{
+      const label = pdfSafe(`${en.number} - ${en.title || "(sans titre)"}`);
+      if(en.kind==="chapter"){ curChap = pdf.outline.add(null, label, {pageNumber:en.page}); curSec=null; }
+      else if(en.depth===1){ curSec = pdf.outline.add(curChap, label, {pageNumber:en.page}); }
+      else { pdf.outline.add(curSec || curChap, label, {pageNumber:en.page}); }
+    });
+    void root;
+  }catch(e){ /* signets facultatifs */ }
+
+  return pdf;
+}
+
+async function exportPDF(){
+  if(!window.jspdf || !window.jspdf.jsPDF){
+    alert("Le générateur PDF n'a pas pu être chargé (connexion internet nécessaire). Utilisation de l'impression du navigateur à la place — les liens du sommaire ne seront pas cliquables.");
+    window.print(); return;
+  }
+  showBusy("Génération du PDF…");
+  try{
+    const pdf = await buildPdf((i,n)=> setBusy(`Génération du PDF — page ${i}/${n}…`));
+    setBusy("Enregistrement…"); await yieldUI();
+    const name = (state.meta.title || "DOE").replace(/[^\w\-À-ÿ ]+/g,"").trim().replace(/\s+/g,"_") || "DOE";
+    pdf.save(name + ".pdf");
+  }catch(err){
+    alert("Échec de la génération du PDF : " + (err && err.message ? err.message : err));
+  }finally{ hideBusy(); }
+}
+
 /* ============ Câblage UI ============ */
 $("#inLogo").addEventListener("change", async e=>{ if(e.target.files[0]){ state.logo=await readAsDataURL(e.target.files[0]); markDirty(); renderDocument(); recordHistory(); } e.target.value=""; });
 $("#inPhoto").addEventListener("change", async e=>{ if(e.target.files[0]){ state.photo=await readAsDataURL(e.target.files[0]); markDirty(); renderDocument(); recordHistory(); } e.target.value=""; });
@@ -1006,9 +1300,241 @@ $("#btnCollapseAll").addEventListener("click", ()=>{
   else{ ids.forEach(id=>collapsedNodes.add(id)); }
   renderSections();
 });
-$("#btnSave").addEventListener("click", saveJSON);
+/* ============ ⛯ Réglages : dossier de sauvegarde, auto-save, installation ============ */
+const FS_OK = typeof window.showDirectoryPicker === "function";
+let dirHandle = null, dirPerm = "none", autoTimer = null, lastSaveAt = null, lastSaveAuto = false, deferredInstall = null;
+const settings = (()=>{
+  const def = {auto:false, every:2};
+  try{ return Object.assign(def, JSON.parse(localStorage.getItem("doe-settings") || "{}")); }catch(e){ return def; }
+})();
+function saveSettings(){ try{ localStorage.setItem("doe-settings", JSON.stringify(settings)); }catch(e){} }
+
+let toastTimer=null;
+function toast(msg){
+  const t=$("#toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"), 2600);
+}
+
+/* -- mémorisation du dossier (IndexedDB : seul endroit où un handle de dossier peut être conservé) -- */
+function idbOpen(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open("doe-constructor",1);
+    r.onupgradeneeded=()=>r.result.createObjectStore("kv");
+    r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
+  });
+}
+async function kv(op, key, val){
+  try{
+    const db=await idbOpen();
+    return await new Promise((res,rej)=>{
+      const tx=db.transaction("kv", op==="get"?"readonly":"readwrite"), st=tx.objectStore("kv");
+      const rq = op==="get" ? st.get(key) : op==="set" ? st.put(val,key) : st.delete(key);
+      rq.onsuccess=()=>res(rq.result); rq.onerror=()=>rej(rq.error);
+    });
+  }catch(e){ return null; }
+}
+
+async function checkPerm(ask){
+  if(!dirHandle){ dirPerm="none"; return dirPerm; }
+  try{
+    const o={mode:"readwrite"};
+    dirPerm = await dirHandle.queryPermission(o);
+    if(dirPerm!=="granted" && ask) dirPerm = await dirHandle.requestPermission(o);
+  }catch(e){ dirPerm="denied"; }
+  return dirPerm;
+}
+async function pickFolder(){
+  if(!FS_OK) return;
+  try{
+    const hnd = await window.showDirectoryPicker({id:"doe-constructor", mode:"readwrite"});
+    dirHandle = hnd; await kv("set","dir",hnd); await checkPerm(true);
+    toast(`Dossier « ${hnd.name} » défini`);
+    renderSettings(); listFolderFiles();
+  }catch(e){ if(e && e.name!=="AbortError") alert("Impossible d'utiliser ce dossier : "+e.message); }
+}
+async function forgetFolder(){
+  if(!confirm("Oublier ce dossier de sauvegarde ? (les fichiers déjà enregistrés ne sont pas supprimés)")) return;
+  dirHandle=null; dirPerm="none"; await kv("del","dir"); renderSettings();
+}
+async function writeToFolder(ask){
+  if(!dirHandle) return false;
+  if(await checkPerm(ask)!=="granted"){ renderSettings(); return false; }
+  const fh = await dirHandle.getFileHandle(docBaseName()+".json", {create:true});
+  const w = await fh.createWritable();
+  await w.write(serialize()); await w.close();
+  dirty=false; document.body.classList.remove("dirty");
+  lastSaveAt=new Date();
+  return true;
+}
+async function manualSave(){
+  if(dirHandle){
+    try{
+      if(await writeToFolder(true)){ lastSaveAuto=false; renderSettings(); toast(`Enregistré dans « ${dirHandle.name} »`); listFolderFiles(); return; }
+      toast("Accès au dossier refusé : téléchargement à la place");
+    }catch(e){ alert("Échec de l'enregistrement dans le dossier : "+e.message+"\nLe fichier va être téléchargé à la place."); }
+  }
+  saveJSON(); lastSaveAt=new Date(); lastSaveAuto=false; renderSettings();
+}
+function scheduleAuto(){
+  clearInterval(autoTimer); autoTimer=null;
+  if(!settings.auto) return;
+  autoTimer = setInterval(async ()=>{
+    if(!dirty || !dirHandle) return;
+    try{ if(await writeToFolder(false)){ lastSaveAuto=true; renderSettings(); toast("Sauvegarde automatique ✓"); } }
+    catch(e){ /* nouvel essai au prochain tour */ }
+  }, Math.max(1, +settings.every||2)*60000);
+}
+async function listFolderFiles(){
+  const box=$("#setFiles"), block=$("#setOpenBlock");
+  if(!dirHandle || dirPerm!=="granted"){ block.hidden=true; return; }
+  const files=[];
+  try{
+    for await (const [name, hnd] of dirHandle.entries()){
+      if(hnd.kind==="file" && /\.json$/i.test(name)){
+        let when=null; try{ when=(await hnd.getFile()).lastModified; }catch(e){}
+        files.push({name, hnd, when});
+      }
+    }
+  }catch(e){ block.hidden=true; return; }
+  files.sort((a,b)=>(b.when||0)-(a.when||0));
+  box.innerHTML="";
+  if(!files.length){ box.append(h("div","set-muted",{textContent:"Aucun fichier .json dans ce dossier pour l'instant."})); }
+  files.forEach(f=>{
+    const b=h("button");
+    b.append(h("span",null,{textContent:f.name}));
+    if(f.when) b.append(h("small",null,{textContent:new Date(f.when).toLocaleString("fr-FR",{dateStyle:"short",timeStyle:"short"})}));
+    b.onclick=async ()=>{
+      if(dirty && !confirm("Ouvrir ce fichier ? Les modifications non enregistrées seront perdues.")) return;
+      try{ loadJSON(await f.hnd.getFile()); closeSettings(); }catch(e){ alert("Lecture impossible : "+e.message); }
+    };
+    box.append(b);
+  });
+  block.hidden=false;
+}
+
+/* -- installation (PWA) -- */
+const isStandalone = ()=> matchMedia("(display-mode: standalone)").matches || navigator.standalone===true;
+window.addEventListener("beforeinstallprompt", e=>{ e.preventDefault(); deferredInstall=e; renderSettings(); });
+window.addEventListener("appinstalled", ()=>{ deferredInstall=null; toast("DOEConstructor est installé"); renderSettings(); });
+async function installApp(){
+  if(deferredInstall){
+    deferredInstall.prompt();
+    try{ await deferredInstall.userChoice; }catch(e){}
+    deferredInstall=null; renderSettings(); return;
+  }
+  const ua=navigator.userAgent;
+  if(/iPhone|iPad|Macintosh/.test(ua) && /Safari/.test(ua) && !/Chrome|Edg/.test(ua))
+    alert("Sur Safari : bouton Partager, puis « Sur l'écran d'accueil » (iPhone/iPad) ou menu Fichier → « Ajouter au Dock » (Mac).");
+  else
+    alert("L'installation n'est pas proposée pour l'instant par ce navigateur.\n\nDans Chrome ou Edge : menu ⋮ → « Installer DOEConstructor » (ou icône d'installation dans la barre d'adresse).");
+}
+function appIcon(size){
+  const c=document.createElement("canvas"); c.width=c.height=size;
+  const x=c.getContext("2d"), s=size/512;
+  x.fillStyle="#123a6b"; x.beginPath();
+  if(x.roundRect) x.roundRect(0,0,size,size,96*s); else x.rect(0,0,size,size); x.fill();
+  // meuble à tiroirs
+  x.fillStyle="#fff";
+  x.fillRect(136*s,92*s,240*s,300*s);
+  x.fillStyle="#123a6b";
+  [112,212,312].forEach(y=>{ x.fillRect(156*s,y*s,200*s,80*s); });
+  x.fillStyle="#fff";
+  [112,212,312].forEach(y=>{ x.fillRect(226*s,(y+34)*s,60*s,12*s); });
+  x.font=`700 ${64*s}px Arial, Helvetica, sans-serif`; x.textAlign="center"; x.fillStyle="#fff";
+  x.fillText("DOE", 256*s, 462*s);
+  return c.toDataURL("image/png");
+}
+function setupManifest(){
+  if(!/^https?:$/.test(location.protocol)) return;          // en local (file://) l'installation est impossible
+  const base = location.href.split("#")[0].split("?")[0];
+  const scope = base.slice(0, base.lastIndexOf("/")+1);
+  const i192=appIcon(192), i512=appIcon(512);
+  const manifest = {
+    name:"DOEConstructor", short_name:"DOE",
+    description:"Composer des Dossiers d'Ouvrage Exécuté",
+    id: base, start_url: base, scope,
+    display:"standalone", background_color:"#e7eaef", theme_color:"#123a6b",
+    icons:[{src:i192,sizes:"192x192",type:"image/png"},{src:i512,sizes:"512x512",type:"image/png"},{src:i512,sizes:"512x512",type:"image/png",purpose:"maskable"}]
+  };
+  const link=document.createElement("link"); link.rel="manifest";
+  link.href=URL.createObjectURL(new Blob([JSON.stringify(manifest)],{type:"application/manifest+json"}));
+  document.head.append(link);
+  const theme=document.createElement("meta"); theme.name="theme-color"; theme.content="#123a6b"; document.head.append(theme);
+  const apple=document.createElement("link"); apple.rel="apple-touch-icon"; apple.href=i192; document.head.append(apple);
+}
+
+/* -- rendu du panneau -- */
+function renderSettings(){
+  $("#setFileName").textContent = docBaseName()+".json";
+  $("#setLastSave").textContent = lastSaveAt
+    ? `${lastSaveAuto?"sauvegarde auto":"enregistré"} à ${lastSaveAt.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}`
+    : "pas encore enregistré";
+
+  const name=$("#setFolderName"), st=$("#setFolderState");
+  st.classList.remove("set-ok","set-warn");
+  if(!FS_OK){
+    name.textContent="Non disponible dans ce navigateur";
+    st.textContent="Le choix d'un dossier nécessite Chrome ou Edge. Les sauvegardes sont téléchargées.";
+    $("#setPick").disabled=true; $("#setPickNote").hidden=true;
+  }else if(!dirHandle){
+    name.textContent="Aucun dossier défini";
+    st.textContent="Les sauvegardes sont téléchargées dans tes Téléchargements.";
+  }else{
+    name.textContent=dirHandle.name;
+    if(dirPerm==="granted"){ st.textContent="Accès autorisé"; st.classList.add("set-ok"); }
+    else{ st.textContent="Accès à réautoriser (le navigateur le redemande après un redémarrage)"; st.classList.add("set-warn"); }
+  }
+  $("#setPick").textContent = dirHandle ? "Changer de dossier" : "Choisir ou créer un dossier";
+  $("#setReauth").hidden = !(dirHandle && dirPerm!=="granted");
+  $("#setForget").hidden = !dirHandle;
+
+  $("#setAuto").checked = !!settings.auto;
+  $("#setAuto").disabled = !FS_OK;
+  $("#setEvery").value = String(settings.every);
+  $("#setEvery").disabled = !settings.auto || !FS_OK;
+  const an=$("#setAutoNote"); an.classList.remove("set-warn");
+  if(settings.auto && !dirHandle){ an.textContent="Choisis un dossier pour activer la sauvegarde automatique."; an.classList.add("set-warn"); }
+  else if(settings.auto && dirPerm!=="granted"){ an.textContent="En pause : réautorise l'accès au dossier."; an.classList.add("set-warn"); }
+  else an.textContent="Seules les modifications non enregistrées déclenchent une sauvegarde.";
+
+  const ib=$("#setInstall"), inote=$("#setInstallNote");
+  if(isStandalone()){ ib.disabled=true; ib.textContent="Application installée"; inote.textContent="Tu utilises déjà la version installée."; }
+  else if(!/^https?:$/.test(location.protocol)){ ib.disabled=true; inote.textContent="L'installation fonctionne depuis l'adresse en ligne (GitHub Pages), pas depuis un fichier ouvert en local."; }
+  else{ ib.disabled=false; ib.textContent="Installer l'application"; inote.textContent = deferredInstall ? "Ajoute DOEConstructor comme une application, avec sa propre fenêtre et son icône." : "Si rien ne s'ouvre, passe par le menu du navigateur (⋮ → Installer)."; }
+
+  $("#btnSave").title = (dirHandle && dirPerm==="granted") ? `Enregistrer dans « ${dirHandle.name} » (Ctrl+S)` : "Enregistrer en JSON (Ctrl+S)";
+}
+async function openSettings(){
+  if(dirHandle) await checkPerm(false);
+  renderSettings(); listFolderFiles();
+  $("#setBackdrop").hidden=false; $("#setPanel").hidden=false; $("#setClose").focus();
+}
+function closeSettings(){ $("#setBackdrop").hidden=true; $("#setPanel").hidden=true; $("#btnSettings").focus(); }
+
+$("#btnSettings").addEventListener("click", openSettings);
+$("#setClose").addEventListener("click", closeSettings);
+$("#setBackdrop").addEventListener("click", closeSettings);
+document.addEventListener("keydown", e=>{ if(e.key==="Escape" && !$("#setPanel").hidden) closeSettings(); });
+$("#setPick").addEventListener("click", pickFolder);
+$("#setReauth").addEventListener("click", async ()=>{ await checkPerm(true); renderSettings(); listFolderFiles(); });
+$("#setForget").addEventListener("click", forgetFolder);
+$("#setSaveNow").addEventListener("click", manualSave);
+$("#setAuto").addEventListener("change", e=>{ settings.auto=e.target.checked; saveSettings(); scheduleAuto(); renderSettings(); });
+$("#setEvery").addEventListener("change", e=>{ settings.every=+e.target.value; saveSettings(); scheduleAuto(); renderSettings(); });
+$("#setInstall").addEventListener("click", installApp);
+
+async function initSettings(){
+  setupManifest();
+  if(FS_OK){
+    const saved = await kv("get","dir");
+    if(saved){ dirHandle=saved; await checkPerm(false); }
+  }
+  scheduleAuto(); renderSettings();
+}
+
+$("#btnSave").addEventListener("click", manualSave);
 $("#btnLoad").addEventListener("click", ()=> $("#inJson").click());
-$("#btnPrint").addEventListener("click", ()=>{ if(zoom!==null){ zoom=null; } applyZoom(); setTimeout(()=>window.print(),60); });
+$("#btnPrint").addEventListener("click", exportPDF);
 $("#btnUndo").addEventListener("click", undo);
 $("#btnRedo").addEventListener("click", redo);
 $("#btnSommaire").addEventListener("click", scrollToSommaire);
@@ -1017,6 +1543,7 @@ document.addEventListener("keydown", e=>{
   if(!(e.ctrlKey||e.metaKey)) return;
   const t=e.target, editing = t && (t.tagName==="INPUT"||t.tagName==="TEXTAREA"||t.isContentEditable);
   const k=(e.key||"").toLowerCase();
+  if(k==="s"){ e.preventDefault(); if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); manualSave(); return; }
   if(k==="z" && !e.shiftKey){ if(editing) return; e.preventDefault(); undo(); }
   else if((k==="z" && e.shiftKey) || k==="y"){ if(editing) return; e.preventDefault(); redo(); }
 });
@@ -1035,6 +1562,7 @@ window.addEventListener("beforeunload", e=>{ if(dirty){ e.preventDefault(); e.re
 setupListDnD();
 renderAll();
 initHistory();
+initSettings();
 </script>
 </body>
 </html>

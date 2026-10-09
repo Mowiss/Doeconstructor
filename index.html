@@ -58,6 +58,9 @@
   .tbtn.icon svg{width:20px;height:20px}
   .tbtn[disabled]{opacity:.35;cursor:default;pointer-events:none}
   .tbar-sep{width:1px;height:22px;background:rgba(255,255,255,.3);margin:0 4px}
+  .doc-name{margin-left:14px;padding-left:14px;border-left:1px solid rgba(255,255,255,.3);font-size:13px;opacity:.9;
+    max-width:32vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .doc-name.unsaved{font-style:italic;opacity:.7}
   .dirty-dot{width:8px;height:8px;border-radius:50%;background:#ffd24a;display:none}
   .dirty .dirty-dot{display:inline-block}
 
@@ -322,6 +325,7 @@
 
 <header class="toolbar" id="toolbar">
   <div class="brand"><span class="mark">🗃️</span> <span>DOEConstructor</span></div>
+  <span class="doc-name" id="docName" title="Fichier en cours">Nouveau dossier</span>
   <span class="dirty-dot" title="Modifications non enregistrées"></span>
   <div class="spacer"></div>
   <button class="tbtn icon" id="btnUndo" title="Annuler (Ctrl+Z)">
@@ -334,11 +338,14 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
   </button>
   <span class="tbar-sep"></span>
-  <button class="tbtn icon" id="btnLoad" title="Ouvrir un fichier JSON">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+  <button class="tbtn icon" id="btnLoad" title="Ouvrir un fichier .doe ou .json (Ctrl+O)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v1"/><path d="M3 7v11a2 2 0 002 2h13l3-9H7l-3 9"/></svg>
   </button>
-  <button class="tbtn icon" id="btnSave" title="Enregistrer en JSON">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21V9m0 12l-4-4m4 4l4-4M4 7V5a2 2 0 012-2h12a2 2 0 012 2v2"/></svg>
+  <button class="tbtn icon" id="btnSave" title="Enregistrer (Ctrl+S)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 3h11l4 4v12a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 011-2z"/><path d="M8 3v5h7V3"/><rect x="7" y="13" width="10" height="8"/></svg>
+  </button>
+  <button class="tbtn icon" id="btnSaveAs" title="Enregistrer sous… (Ctrl+Maj+S)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M13 21H6a2 2 0 01-2-2V5a2 2 0 011-2h11l4 4v4"/><path d="M8 3v5h7V3"/><path d="M16.5 14.5l3 3L14 23h-3v-3z"/></svg>
   </button>
   <button class="tbtn primary icon" id="btnPrint" title="Exporter en PDF (sommaire cliquable)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V3h12v6M6 18H4a2 2 0 01-2-2v-3a2 2 0 012-2h16a2 2 0 012 2v3a2 2 0 01-2 2h-2M6 14h12v7H6z"/></svg>
@@ -356,36 +363,26 @@
   </div>
 
   <section class="set-block">
-    <h3>Dossier de sauvegarde</h3>
+    <h3>Fichier en cours</h3>
     <div class="set-folder">
-      <span class="set-folder-ic">📁</span>
+      <span class="set-folder-ic">🗃️</span>
       <div class="set-folder-txt">
-        <div id="setFolderName" class="set-strong">Aucun dossier défini</div>
-        <div id="setFolderState" class="set-muted">Les sauvegardes sont téléchargées dans tes Téléchargements.</div>
+        <div id="setFileName" class="set-strong">Nouveau dossier</div>
+        <div id="setLastSave" class="set-muted">pas encore enregistré</div>
       </div>
     </div>
     <div class="set-row">
-      <button class="minibtn brand" id="setPick">Choisir ou créer un dossier</button>
-      <button class="minibtn" id="setReauth" hidden>Réautoriser l'accès</button>
-      <button class="minibtn ghost-danger" id="setForget" hidden>Oublier</button>
+      <button class="minibtn brand" id="setSaveNow">Enregistrer</button>
+      <button class="minibtn" id="setSaveAsNow">Enregistrer sous…</button>
     </div>
-    <p class="set-note" id="setPickNote">Dans la fenêtre qui s'ouvre, le bouton « Nouveau dossier » permet de le créer.</p>
-  </section>
-
-  <section class="set-block">
-    <h3>Sauvegarde manuelle</h3>
-    <div class="set-row">
-      <button class="minibtn brand" id="setSaveNow">Enregistrer maintenant</button>
-      <span class="set-muted">Ctrl+S</span>
-    </div>
-    <p class="set-note">Fichier : <b id="setFileName">DOE.json</b> · <span id="setLastSave">pas encore enregistré</span></p>
+    <p class="set-note">Ctrl+O ouvrir · Ctrl+S enregistrer · Ctrl+Maj+S enregistrer sous. Les fichiers sont créés au format <b>.doe</b> ; les anciens <b>.json</b> s'ouvrent toujours.</p>
   </section>
 
   <section class="set-block">
     <h3>Sauvegarde automatique</h3>
     <label class="set-switch">
       <input type="checkbox" id="setAuto">
-      <span>Enregistrer automatiquement dans le dossier</span>
+      <span>Enregistrer automatiquement le fichier .doe</span>
     </label>
     <div class="set-row">
       <span class="set-muted">Toutes les</span>
@@ -397,11 +394,6 @@
       </select>
     </div>
     <p class="set-note" id="setAutoNote">Seules les modifications non enregistrées déclenchent une sauvegarde.</p>
-  </section>
-
-  <section class="set-block" id="setOpenBlock" hidden>
-    <h3>Ouvrir un DOE du dossier</h3>
-    <div id="setFiles" class="set-files"></div>
   </section>
 
   <section class="set-block">
@@ -458,7 +450,7 @@
 <input type="file" id="inLogo" class="hidden-input" accept="image/*">
 <input type="file" id="inPhoto" class="hidden-input" accept="image/*">
 <input type="file" id="inSecImgs" class="hidden-input" accept="image/png,image/jpeg,image/webp,application/pdf" multiple>
-<input type="file" id="inJson" class="hidden-input" accept="application/json,.json">
+<input type="file" id="inJson" class="hidden-input" accept=".doe,.json,application/json">
 
 <div id="busy" class="busy" style="display:none"><div class="busy-box"><div class="spinner"></div><span id="busyMsg">Traitement…</span></div></div>
 
@@ -1018,16 +1010,25 @@ function wireDrop(el, onFiles){
 }
 
 /* ============ Save / Load / Print / New ============ */
+/* Format .doe = JSON de l'état + un en-tête qui identifie le fichier */
+const DOE_TYPES = [{description:"Dossier DOE", accept:{"application/x-doe":[".doe"]}}];
+let fileHandle = null;      // fichier .doe actuellement lié (Enregistrer y réécrit)
+let fileName = null;        // nom affiché (null = nouveau dossier jamais enregistré)
 function docBaseName(){ return (state.meta.title || "DOE").replace(/[^\w\-À-ÿ ]+/g,"").trim().replace(/\s+/g,"_") || "DOE"; }
-function serialize(){ return JSON.stringify(state, null, 0); }
-function saveJSON(){
-  const blob = new Blob([serialize()], {type:"application/json"});
+function serialize(){ return JSON.stringify(Object.assign({app:"DOEConstructor", format:1}, state)); }
+function suggestedDoeName(){
+  const base = fileName ? fileName.replace(/\.(doe|json)$/i,"") : docBaseName();
+  return base + ".doe";
+}
+function markSaved(){ dirty=false; document.body.classList.remove("dirty"); lastSaveAt=new Date(); autoPaused=false; }
+function downloadDoe(name){
+  const blob = new Blob([serialize()], {type:"application/x-doe"});
   const a = h("a");
   a.href = URL.createObjectURL(blob);
-  a.download = docBaseName() + ".json";
+  a.download = /\.doe$/i.test(name) ? name : name + ".doe";
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
-  dirty = false; document.body.classList.remove("dirty");
+  markSaved();
 }
 function normSection(n){
   return { id:n.id||uid(), type:"section", name:n.name ?? n.title ?? "", images:Array.isArray(n.images)?n.images.map(im=>({id:im.id||uid(), src:im.src, name:im.name||""})).filter(im=>im.src):[] };
@@ -1052,33 +1053,41 @@ function toItems(obj){
   if(Array.isArray(obj.sections)) return obj.sections.map(normSection);   // tout 1er format à plat
   return [];
 }
-function loadJSON(file){
-  const r = new FileReader();
-  r.onload = ()=>{
-    try{
-      const obj = JSON.parse(r.result);
-      if(!obj || typeof obj!=="object" || (!("items" in obj) && !("tree" in obj) && !("sections" in obj))) throw new Error("format");
-      state = {
-        meta:{
-          title: obj.meta?.title ?? "",
-          subtitle: obj.meta?.subtitle ?? "DOSSIER D'OUVRAGE EXÉCUTÉ",
-          footer: obj.meta?.footer ?? ""
-        },
-        logo: obj.logo ?? null,
-        photo: obj.photo ?? null,
-        items: toItems(obj)
-      };
-      collapsedNodes.clear();
-      state.items.forEach(i=>collapsedNodes.add(i.id));   // tout replié par défaut
-      renderAll();
-      initHistory();
-      dirty = false; document.body.classList.remove("dirty");
-    }catch(e){
-      alert("Fichier illisible. Sélectionne un JSON exporté par cet outil.");
-    }
-  };
-  r.readAsText(file);
+/* Ouvre un .doe (lié : Enregistrer le réécrit) ou un ancien .json (importé : Enregistrer propose un .doe) */
+async function loadFile(file, handle){
+  try{
+    const obj = JSON.parse(await file.text());
+    if(!obj || typeof obj!=="object" || (!("items" in obj) && !("tree" in obj) && !("sections" in obj))) throw new Error("format");
+    state = {
+      meta:{
+        title: obj.meta?.title ?? "",
+        subtitle: obj.meta?.subtitle ?? "DOSSIER D'OUVRAGE EXÉCUTÉ",
+        footer: obj.meta?.footer ?? ""
+      },
+      logo: obj.logo ?? null,
+      photo: obj.photo ?? null,
+      items: toItems(obj)
+    };
+    collapsedNodes.clear();
+    state.items.forEach(i=>collapsedNodes.add(i.id));   // tout replié par défaut
+    const isDoe = /\.doe$/i.test(file.name);
+    fileHandle = (isDoe && handle) ? handle : null;
+    fileName = isDoe ? file.name : file.name.replace(/\.json$/i,"") + ".doe";
+    importedFromJson = !isDoe;
+    lastSaveAt = null;
+    renderAll();
+    initHistory();
+    dirty = false; document.body.classList.remove("dirty");
+    updateDocName();
+    if(!isDoe) toast("Ancien fichier .json ouvert : « Enregistrer » le convertira en .doe");
+    return true;
+  }catch(e){
+    alert("Fichier illisible. Sélectionne un fichier .doe (ou un ancien .json) créé par DOEConstructor.");
+    return false;
+  }
 }
+let importedFromJson = false;
+function loadJSON(file){ return loadFile(file, null); }   // compatibilité
 function newDOE(){
   if(dirty && !confirm("Créer un nouveau dossier ? Les modifications non enregistrées seront perdues.")) return;
   state = newState();
@@ -1288,7 +1297,7 @@ $("#inSecImgs").addEventListener("change", async e=>{
   if(sec && (sec.type==="section"||sec.type==="soussection") && e.target.files.length) await addFilesToSection(sec, e.target.files);
   activeSecForImport=null; e.target.value="";
 });
-$("#inJson").addEventListener("change", e=>{ if(e.target.files[0]) loadJSON(e.target.files[0]); e.target.value=""; });
+$("#inJson").addEventListener("change", async e=>{ const f=e.target.files[0]; e.target.value=""; if(f && await loadFile(f, null)) toast(`« ${f.name} » ouvert`); });
 
 $("#btnAddJalon").addEventListener("click", ()=>{ const it=newJalon(); collapsedNodes.add(it.id); state.items.push(it); changed(); });
 $("#btnAddSection").addEventListener("click", ()=>{ const it=newSection(); collapsedNodes.add(it.id); state.items.push(it); changed(); });
@@ -1300,9 +1309,8 @@ $("#btnCollapseAll").addEventListener("click", ()=>{
   else{ ids.forEach(id=>collapsedNodes.add(id)); }
   renderSections();
 });
-/* ============ ⛯ Réglages : dossier de sauvegarde, auto-save, installation ============ */
-const FS_OK = typeof window.showDirectoryPicker === "function";
-let dirHandle = null, dirPerm = "none", autoTimer = null, lastSaveAt = null, lastSaveAuto = false, deferredInstall = null;
+/* ============ ⛯ Réglages : sauvegarde auto, installation ============ */
+let autoTimer = null, lastSaveAt = null, lastSaveAuto = false, deferredInstall = null;
 const settings = (()=>{
   const def = {auto:false, every:2};
   try{ return Object.assign(def, JSON.parse(localStorage.getItem("doe-settings") || "{}")); }catch(e){ return def; }
@@ -1315,101 +1323,101 @@ function toast(msg){
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"), 2600);
 }
 
-/* -- mémorisation du dossier (IndexedDB : seul endroit où un handle de dossier peut être conservé) -- */
-function idbOpen(){
-  return new Promise((res,rej)=>{
-    const r=indexedDB.open("doe-constructor",1);
-    r.onupgradeneeded=()=>r.result.createObjectStore("kv");
-    r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
-  });
-}
-async function kv(op, key, val){
-  try{
-    const db=await idbOpen();
-    return await new Promise((res,rej)=>{
-      const tx=db.transaction("kv", op==="get"?"readonly":"readwrite"), st=tx.objectStore("kv");
-      const rq = op==="get" ? st.get(key) : op==="set" ? st.put(val,key) : st.delete(key);
-      rq.onsuccess=()=>res(rq.result); rq.onerror=()=>rej(rq.error);
-    });
-  }catch(e){ return null; }
-}
+/* ---------- Ouvrir / Enregistrer / Enregistrer sous ---------- */
+const OPEN_OK = typeof window.showOpenFilePicker === "function";
+const SAVE_OK = typeof window.showSaveFilePicker === "function";
+let busySaving = false;
 
-async function checkPerm(ask){
-  if(!dirHandle){ dirPerm="none"; return dirPerm; }
+function updateDocName(){
+  const el=$("#docName");
+  el.textContent = fileName || "Nouveau dossier";
+  el.classList.toggle("unsaved", !fileHandle);
+  el.title = fileHandle ? `Fichier en cours : ${fileName}` : (importedFromJson ? "Ancien .json ouvert : pas encore enregistré en .doe" : "Pas encore enregistré");
+  document.title = (fileName ? fileName.replace(/\.doe$/i,"") + " · " : "") + "DOEConstructor";
+  if(typeof renderSettings==="function") renderSettings();
+}
+async function filePerm(hnd, ask){
   try{
     const o={mode:"readwrite"};
-    dirPerm = await dirHandle.queryPermission(o);
-    if(dirPerm!=="granted" && ask) dirPerm = await dirHandle.requestPermission(o);
-  }catch(e){ dirPerm="denied"; }
-  return dirPerm;
+    let p = await hnd.queryPermission(o);
+    if(p!=="granted" && ask) p = await hnd.requestPermission(o);
+    return p;
+  }catch(e){ return "denied"; }
 }
-async function pickFolder(){
-  if(!FS_OK) return;
+async function writeHandle(hnd){
+  const w = await hnd.createWritable();
+  await w.write(new Blob([serialize()], {type:"application/x-doe"})); await w.close();
+  markSaved();
+}
+// la fenêtre s'ouvre à côté du fichier en cours ; sinon le navigateur reprend le dernier dossier utilisé (id)
+function startIn(){ return fileHandle || "documents"; }
+
+async function openDoc(){
+  if(dirty && !confirm("Ouvrir un autre dossier ? Les modifications non enregistrées seront perdues.")) return;
+  if(!OPEN_OK){ $("#inJson").click(); return; }
+  let hnd;
   try{
-    const hnd = await window.showDirectoryPicker({id:"doe-constructor", mode:"readwrite"});
-    dirHandle = hnd; await kv("set","dir",hnd); await checkPerm(true);
-    toast(`Dossier « ${hnd.name} » défini`);
-    renderSettings(); listFolderFiles();
-  }catch(e){ if(e && e.name!=="AbortError") alert("Impossible d'utiliser ce dossier : "+e.message); }
+    [hnd] = await window.showOpenFilePicker({
+      id:"doe-open", startIn:startIn(), multiple:false,
+      types:[{description:"Dossier DOE ou ancien JSON", accept:{"application/x-doe":[".doe"], "application/json":[".json"]}}]
+    });
+  }catch(e){ if(e && e.name!=="AbortError") alert("Ouverture impossible : "+e.message); return; }
+  const ok = await loadFile(await hnd.getFile(), hnd);
+  if(ok) toast(`« ${fileName} » ouvert`);
 }
-async function forgetFolder(){
-  if(!confirm("Oublier ce dossier de sauvegarde ? (les fichiers déjà enregistrés ne sont pas supprimés)")) return;
-  dirHandle=null; dirPerm="none"; await kv("del","dir"); renderSettings();
+async function saveDoc(){
+  if(busySaving) return;
+  if(!fileHandle){ return saveDocAs(); }
+  busySaving = true;
+  try{
+    if(await filePerm(fileHandle, true)!=="granted"){ toast("Accès au fichier refusé"); busySaving=false; return saveDocAs(); }
+    await writeHandle(fileHandle);
+    lastSaveAuto=false; updateDocName(); toast(`« ${fileName} » enregistré`);
+  }catch(e){
+    alert("Échec de l'enregistrement : "+e.message);
+  }finally{ busySaving=false; }
 }
-async function writeToFolder(ask){
-  if(!dirHandle) return false;
-  if(await checkPerm(ask)!=="granted"){ renderSettings(); return false; }
-  const fh = await dirHandle.getFileHandle(docBaseName()+".json", {create:true});
-  const w = await fh.createWritable();
-  await w.write(serialize()); await w.close();
-  dirty=false; document.body.classList.remove("dirty");
-  lastSaveAt=new Date();
-  return true;
-}
-async function manualSave(){
-  if(dirHandle){
-    try{
-      if(await writeToFolder(true)){ lastSaveAuto=false; renderSettings(); toast(`Enregistré dans « ${dirHandle.name} »`); listFolderFiles(); return; }
-      toast("Accès au dossier refusé : téléchargement à la place");
-    }catch(e){ alert("Échec de l'enregistrement dans le dossier : "+e.message+"\nLe fichier va être téléchargé à la place."); }
+async function saveDocAs(){
+  if(busySaving) return;
+  if(!SAVE_OK){                                   // Firefox / Safari : téléchargement
+    const name = prompt("Nom du fichier .doe :", suggestedDoeName());
+    if(!name) return;
+    downloadDoe(name.trim());
+    fileName = /\.doe$/i.test(name.trim()) ? name.trim() : name.trim()+".doe";
+    importedFromJson=false; lastSaveAuto=false; updateDocName();
+    return;
   }
-  saveJSON(); lastSaveAt=new Date(); lastSaveAuto=false; renderSettings();
+  let hnd;
+  try{
+    hnd = await window.showSaveFilePicker({ id:"doe-save", startIn:startIn(), suggestedName:suggestedDoeName(), types:DOE_TYPES, excludeAcceptAllOption:true });
+  }catch(e){ if(e && e.name!=="AbortError") alert("Enregistrement impossible : "+e.message); return; }
+  busySaving = true;
+  try{
+    await writeHandle(hnd);
+    fileHandle = hnd; fileName = hnd.name; importedFromJson=false; lastSaveAuto=false;
+    updateDocName(); toast(`« ${fileName} » enregistré`);
+  }catch(e){ alert("Échec de l'enregistrement : "+e.message); }
+  finally{ busySaving=false; }
 }
+// compatibilité avec l'ancien nom
+const manualSave = saveDoc;
+
+/* Sauvegarde auto : réécrit le .doe ouvert (rien tant qu'il n'a pas été enregistré une première fois) */
+async function autoSaveTick(){
+  if(!dirty || busySaving || !fileHandle) return;
+  busySaving = true;
+  try{
+    if(await filePerm(fileHandle,false)!=="granted"){ autoPaused=true; renderSettings(); return; }
+    await writeHandle(fileHandle);
+    autoPaused=false; lastSaveAuto=true; renderSettings(); toast("Sauvegarde automatique ✓");
+  }catch(e){ /* nouvel essai au prochain tour */ }
+  finally{ busySaving=false; }
+}
+let autoPaused = false;
 function scheduleAuto(){
   clearInterval(autoTimer); autoTimer=null;
   if(!settings.auto) return;
-  autoTimer = setInterval(async ()=>{
-    if(!dirty || !dirHandle) return;
-    try{ if(await writeToFolder(false)){ lastSaveAuto=true; renderSettings(); toast("Sauvegarde automatique ✓"); } }
-    catch(e){ /* nouvel essai au prochain tour */ }
-  }, Math.max(1, +settings.every||2)*60000);
-}
-async function listFolderFiles(){
-  const box=$("#setFiles"), block=$("#setOpenBlock");
-  if(!dirHandle || dirPerm!=="granted"){ block.hidden=true; return; }
-  const files=[];
-  try{
-    for await (const [name, hnd] of dirHandle.entries()){
-      if(hnd.kind==="file" && /\.json$/i.test(name)){
-        let when=null; try{ when=(await hnd.getFile()).lastModified; }catch(e){}
-        files.push({name, hnd, when});
-      }
-    }
-  }catch(e){ block.hidden=true; return; }
-  files.sort((a,b)=>(b.when||0)-(a.when||0));
-  box.innerHTML="";
-  if(!files.length){ box.append(h("div","set-muted",{textContent:"Aucun fichier .json dans ce dossier pour l'instant."})); }
-  files.forEach(f=>{
-    const b=h("button");
-    b.append(h("span",null,{textContent:f.name}));
-    if(f.when) b.append(h("small",null,{textContent:new Date(f.when).toLocaleString("fr-FR",{dateStyle:"short",timeStyle:"short"})}));
-    b.onclick=async ()=>{
-      if(dirty && !confirm("Ouvrir ce fichier ? Les modifications non enregistrées seront perdues.")) return;
-      try{ loadJSON(await f.hnd.getFile()); closeSettings(); }catch(e){ alert("Lecture impossible : "+e.message); }
-    };
-    box.append(b);
-  });
-  block.hidden=false;
+  autoTimer = setInterval(autoSaveTick, Math.max(1, +settings.every||2)*60000);
 }
 
 /* -- installation (PWA) -- */
@@ -1477,6 +1485,8 @@ function setupManifest(){
     description:"Composer des Dossiers d'Ouvrage Exécuté",
     id: base, start_url: base, scope,
     display:"standalone", background_color:"#e7eaef", theme_color:"#123a6b",
+    // une fois installée, les .doe s'ouvrent avec DOEConstructor (double-clic)
+    file_handlers:[{action: base, accept:{"application/x-doe":[".doe"]}, icons:[{src:i192,sizes:"192x192",type:"image/png"}], launch_type:"single-client"}],
     icons:[{src:i192,sizes:"192x192",type:"image/png"},{src:i512,sizes:"512x512",type:"image/png"},{src:iMask,sizes:"512x512",type:"image/png",purpose:"maskable"}]
   };
   const link=document.createElement("link"); link.rel="manifest";
@@ -1488,48 +1498,32 @@ function setupManifest(){
 
 /* -- rendu du panneau -- */
 function renderSettings(){
-  $("#setFileName").textContent = docBaseName()+".json";
+  $("#setFileName").textContent = fileName || "Nouveau dossier";
   $("#setLastSave").textContent = lastSaveAt
-    ? `${lastSaveAuto?"sauvegarde auto":"enregistré"} à ${lastSaveAt.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}`
-    : "pas encore enregistré";
-
-  const name=$("#setFolderName"), st=$("#setFolderState");
-  st.classList.remove("set-ok","set-warn");
-  if(!FS_OK){
-    name.textContent="Non disponible dans ce navigateur";
-    st.textContent="Le choix d'un dossier nécessite Chrome ou Edge. Les sauvegardes sont téléchargées.";
-    $("#setPick").disabled=true; $("#setPickNote").hidden=true;
-  }else if(!dirHandle){
-    name.textContent="Aucun dossier défini";
-    st.textContent="Les sauvegardes sont téléchargées dans tes Téléchargements.";
-  }else{
-    name.textContent=dirHandle.name;
-    if(dirPerm==="granted"){ st.textContent="Accès autorisé"; st.classList.add("set-ok"); }
-    else{ st.textContent="Accès à réautoriser (le navigateur le redemande après un redémarrage)"; st.classList.add("set-warn"); }
-  }
-  $("#setPick").textContent = dirHandle ? "Changer de dossier" : "Choisir ou créer un dossier";
-  $("#setReauth").hidden = !(dirHandle && dirPerm!=="granted");
-  $("#setForget").hidden = !dirHandle;
+    ? `${lastSaveAuto?"sauvegarde auto":"enregistré"} à ${lastSaveAt.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}${dirty?" · modifications en cours":""}`
+    : (fileHandle ? (dirty?"modifications non enregistrées":"à jour")
+       : importedFromJson ? "ancien .json : pas encore enregistré en .doe" : "pas encore enregistré");
 
   $("#setAuto").checked = !!settings.auto;
-  $("#setAuto").disabled = !FS_OK;
+  $("#setAuto").disabled = !SAVE_OK;
   $("#setEvery").value = String(settings.every);
-  $("#setEvery").disabled = !settings.auto || !FS_OK;
+  $("#setEvery").disabled = !settings.auto || !SAVE_OK;
   const an=$("#setAutoNote"); an.classList.remove("set-warn");
-  if(settings.auto && !dirHandle){ an.textContent="Choisis un dossier pour activer la sauvegarde automatique."; an.classList.add("set-warn"); }
-  else if(settings.auto && dirPerm!=="granted"){ an.textContent="En pause : réautorise l'accès au dossier."; an.classList.add("set-warn"); }
-  else an.textContent="Seules les modifications non enregistrées déclenchent une sauvegarde.";
+  if(!SAVE_OK){ an.textContent="Non disponible dans ce navigateur : il faut Chrome ou Edge pour réécrire un fichier. Ici, Enregistrer télécharge le .doe."; an.classList.add("set-warn"); }
+  else if(!settings.auto) an.textContent="Désactivée : pense à faire Ctrl+S.";
+  else if(!fileHandle){ an.textContent="En attente : enregistre une première fois le dossier (Ctrl+S), la sauvegarde auto prendra le relais."; an.classList.add("set-warn"); }
+  else if(autoPaused){ an.textContent="En pause : fais un Enregistrer (Ctrl+S) pour réautoriser l'écriture du fichier."; an.classList.add("set-warn"); }
+  else an.textContent=`Réécrit « ${fileName} » dès qu'il y a des modifications non enregistrées.`;
 
   const ib=$("#setInstall"), inote=$("#setInstallNote");
   if(isStandalone()){ ib.disabled=true; ib.textContent="Application installée"; inote.textContent="Tu utilises déjà la version installée."; }
   else if(!/^https?:$/.test(location.protocol)){ ib.disabled=true; inote.textContent="L'installation fonctionne depuis l'adresse en ligne (GitHub Pages), pas depuis un fichier ouvert en local."; }
   else{ ib.disabled=false; ib.textContent="Installer l'application"; inote.textContent = deferredInstall ? "Ajoute DOEConstructor comme une application, avec sa propre fenêtre et son icône." : "Si rien ne s'ouvre, passe par le menu du navigateur (⋮ → Installer)."; }
 
-  $("#btnSave").title = (dirHandle && dirPerm==="granted") ? `Enregistrer dans « ${dirHandle.name} » (Ctrl+S)` : "Enregistrer en JSON (Ctrl+S)";
+  $("#btnSave").title = fileHandle ? `Enregistrer « ${fileName} » (Ctrl+S)` : "Enregistrer (Ctrl+S)";
 }
-async function openSettings(){
-  if(dirHandle) await checkPerm(false);
-  renderSettings(); listFolderFiles();
+function openSettings(){
+  renderSettings();
   $("#setBackdrop").hidden=false; $("#setPanel").hidden=false; $("#setClose").focus();
 }
 function closeSettings(){ $("#setBackdrop").hidden=true; $("#setPanel").hidden=true; $("#btnSettings").focus(); }
@@ -1538,25 +1532,31 @@ $("#btnSettings").addEventListener("click", openSettings);
 $("#setClose").addEventListener("click", closeSettings);
 $("#setBackdrop").addEventListener("click", closeSettings);
 document.addEventListener("keydown", e=>{ if(e.key==="Escape" && !$("#setPanel").hidden) closeSettings(); });
-$("#setPick").addEventListener("click", pickFolder);
-$("#setReauth").addEventListener("click", async ()=>{ await checkPerm(true); renderSettings(); listFolderFiles(); });
-$("#setForget").addEventListener("click", forgetFolder);
-$("#setSaveNow").addEventListener("click", manualSave);
+$("#setSaveNow").addEventListener("click", saveDoc);
+$("#setSaveAsNow").addEventListener("click", saveDocAs);
 $("#setAuto").addEventListener("change", e=>{ settings.auto=e.target.checked; saveSettings(); scheduleAuto(); renderSettings(); });
 $("#setEvery").addEventListener("change", e=>{ settings.every=+e.target.value; saveSettings(); scheduleAuto(); renderSettings(); });
 $("#setInstall").addEventListener("click", installApp);
 
-async function initSettings(){
+/* .doe ouvert par double-clic dans l'explorateur (appli installée) */
+if("launchQueue" in window){
+  window.launchQueue.setConsumer(async params=>{
+    if(!params.files || !params.files.length) return;
+    const hnd = params.files[0];
+    if(dirty && !confirm("Ouvrir ce fichier ? Les modifications non enregistrées seront perdues.")) return;
+    if(await loadFile(await hnd.getFile(), hnd)) toast(`« ${fileName} » ouvert`);
+  });
+}
+
+function initSettings(){
   setupManifest();
-  if(FS_OK){
-    const saved = await kv("get","dir");
-    if(saved){ dirHandle=saved; await checkPerm(false); }
-  }
+  updateDocName();
   scheduleAuto(); renderSettings();
 }
 
-$("#btnSave").addEventListener("click", manualSave);
-$("#btnLoad").addEventListener("click", ()=> $("#inJson").click());
+$("#btnSave").addEventListener("click", saveDoc);
+$("#btnSaveAs").addEventListener("click", saveDocAs);
+$("#btnLoad").addEventListener("click", openDoc);
 $("#btnPrint").addEventListener("click", exportPDF);
 $("#btnUndo").addEventListener("click", undo);
 $("#btnRedo").addEventListener("click", redo);
@@ -1566,7 +1566,12 @@ document.addEventListener("keydown", e=>{
   if(!(e.ctrlKey||e.metaKey)) return;
   const t=e.target, editing = t && (t.tagName==="INPUT"||t.tagName==="TEXTAREA"||t.isContentEditable);
   const k=(e.key||"").toLowerCase();
-  if(k==="s"){ e.preventDefault(); if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); manualSave(); return; }
+  if(k==="s"){
+    e.preventDefault();
+    if(document.activeElement && document.activeElement.blur) document.activeElement.blur();   // valide le champ en cours
+    e.shiftKey ? saveDocAs() : saveDoc(); return;
+  }
+  if(k==="o"){ e.preventDefault(); openDoc(); return; }
   if(k==="z" && !e.shiftKey){ if(editing) return; e.preventDefault(); undo(); }
   else if((k==="z" && e.shiftKey) || k==="y"){ if(editing) return; e.preventDefault(); redo(); }
 });
